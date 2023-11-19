@@ -1,11 +1,12 @@
 from cmu_graphics import *
+import random
 
 class Player():
     def __init__(self, health, damage):
         self.health = health
         self.damage = damage
         self.speed = 8
-        self.gravity = 4
+        self.gravity = 24
         self.jumping = False
     def removeHealth(self, damageInflicted):
         if self.health > damageInflicted:
@@ -15,6 +16,10 @@ class Boss():
     def __init__(self, health, damage):
         self.health = health
         self.damage = damage 
+        self.position = [100, 100]
+        self.projectiles = []
+        self.attack1Ready = True
+        self.lineOfSightToPlayer = False
 
 class Weapon():
     def __init__(self, damage):
@@ -34,12 +39,12 @@ class Level():
         self.background = None
         self.platforms = platforms
 
-leftBorder = [0, 0, 10, 800]
-topBorder = [0, 0, 1600, 10]
-rightBorder = [1590, 0, 10, 800]
-bottomBorder = [0, 790, 1600, 10]
+leftBorder = [0, 0, 20, 800]
+topBorder = [0, 0, 1600, 20]
+rightBorder = [1580, 0, 20, 800]
+bottomBorder = [0, 780, 1600, 20]
 
-level1Platforms = [leftBorder, topBorder, rightBorder, bottomBorder, [500, 500, 100, 10], [300, 100, 50, 100]]
+level1Platforms = [leftBorder, topBorder, rightBorder, bottomBorder, [600, 600, 300, 100], [300, 100, 300, 100]]
 
 player = Player(100, 10)
 level1 = Level(level1Platforms)
@@ -52,6 +57,8 @@ boss3 = Boss(3000, 30)
 def onAppStart(app):
     app.width, app.height = 1600, 800
     app.stepsPerSecond = 60
+    app.setMaxShapeCount(10000)
+    app.counter = 0
     app.homeScreen = True
     app.level1Loaded = False
     app.level2Loaded = False
@@ -68,6 +75,9 @@ def redrawAll(app):
         drawHomeScreen(app)
     if app.level1Loaded:
         drawLevel1(app)
+        bossAttack(app)
+        if app.counter == 300:
+            bossMove(app, random.randint(0, app.width), random.randint(0, app.height))
 
 def onKeyPress(app, key):
     pass
@@ -85,26 +95,77 @@ def onKeyHold(app, keys):
         player.jumping = True
 
 def onStep(app):
+    app.counter += 1
     if app.level1Loaded:
         makeMove(app, 0, 10)
+        if app.counter > 600:
+            boss1.attack1Ready = not boss1.attack1Ready
+            app.counter = 0
     if player.jumping:
         makeMove(app, 0, -19)
 
 def drawLevel1(app):
-    drawPlayer(app)
+    drawBoss()
     drawEnviornment1(app)
-    drawBoss(app)
+    drawPlayer(app)
 
 def drawPlayer(app):
     drawRect(*app.position, 50, 70, fill = 'hotpink', align = 'center')
     drawCircle(*app.position, 25, fill = None, border = 'black')
+    drawRect(1400, 740, 104, 10, fill = None, borderWidth = 2, border = 'black')
+    drawRect(1402, 742, player.health, 8, fill = 'green')
+    drawLabel('Player Health', 1452, 730, align='center')
 
 def drawEnviornment1(app):
     for elem in level1.platforms:
-        drawRect(*elem, fill = 'blue')#, align = 'center')
-    pass
+        drawRect(*elem, fill = 'blue')
 
-def drawBoss(app):
+def drawBoss():
+    drawRect(30, 30, 504, 10, fill = None, borderWidth = 2, border = 'black')
+    drawRect(32, 32, boss1.health, 6, fill = 'red')
+    if boss1.attack1Ready:
+        drawCircle(*boss1.position, 100, fill = 'red')
+        drawLabel('Attacking AHHGHH', *boss1.position)
+    else:
+        drawCircle(*boss1.position, 100, fill = 'green')
+        drawLabel('Not Attacking', *boss1.position)
+
+def bossMove(app, newX, newY):
+    dx = newX - boss1.position[0]
+    dy = newY - boss1.position[1]
+    boss1.position = [dx + boss1.position[0], dy + boss1.position[1]]
+    drawBoss()
+
+
+def bossAttack(app):
+    if boss1.health > 300:
+        boss1Attack1(app)
+    else:
+        boss1Attack2(app)
+    
+def boss1Attack1(app):
+    los = lineOfSightCheck(app)
+    if boss1.attack1Ready and los:
+        drawLine(*boss1.position, *app.position, lineWidth = 5)
+        player.health -= 0.025
+        print(player.health)
+    
+def lineOfSightCheck(app):
+    dx = (app.position[0] - boss1.position[0]) // 10
+    dy = (app.position[1] - boss1.position[1]) // 10
+    rect1 = [boss1.position[0] + dx, boss1.position[1] + dy, 10, 10]
+    right = app.position[0] > rect1[0]
+    for i in range(10): #the amount of times before it will hit the player (same number as the // for dx and dy)
+        drawRect(*rect1, fill = None)
+        for platform in level1.platforms[4:]:
+             if rectanglesOverlap(*platform, *rect1):
+                return False
+        rect1 = [rect1[0] + dx, rect1[1] + dy, 10, 10]
+    return True
+
+
+
+def boss1Attack2(app):
     pass
 
 def moveRight(app):
