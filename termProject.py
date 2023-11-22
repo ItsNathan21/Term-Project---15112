@@ -8,13 +8,15 @@ class Player():
         self.speed = 8
         self.gravity = 10
         self.jumping = False
-        self.weapons = [weapon1]
-        self.equippedWeapon = weapon1
+        self.weapons = [weapon1, weapon2]
+        self.equippedWeapon = weapon2
         self.firingWeapon1 = False
+        self.firingWeapon2 = False
+        self.weapon2Pos = []
+        self.weapon2OGPos = []
         self.firingMousePosition = [None, None]
     def removeHealth(self, damageInflicted):
-        if self.health > damageInflicted:
-            self.health -= damageInflicted
+        self.health -= damageInflicted
 
 class Boss():
     def __init__(self, health, damage):
@@ -25,6 +27,8 @@ class Boss():
         self.attack1Ready = True
         self.lineOfSightToPlayer = False
         self.projectX, self.projectY = None, None
+    def takeDamage(self, amount):
+        self.health -= amount
 
 class Weapon():
     def __init__(self, damage):
@@ -57,11 +61,14 @@ level1Platforms = [leftBorder, topBorder, rightBorder, bottomBorder, [1400, 600,
 
 
 weapon1 = Weapon(1)
+weapon2 = Weapon(15)
 
 player = Player(100, 10)
+
 level1 = Level(level1Platforms)
 level2 = Level([])
 level3 = Level([])
+
 boss1 = Boss(500, 10)
 boss2 = Boss(1000, 20)
 boss3 = Boss(3000, 30)
@@ -87,15 +94,22 @@ def onMousePress(app, mouseX, mouseY):
         resetLevelParameters(app)
     if app.victoryScreen and distance(mouseX, mouseY, app.width/2, app.height/2 + 150) < 100:
         level1VictoryParametersReset(app)
-        
-def onMouseDrag(app, mouseX, mouseY):
-    if app.level1Loaded:
+    if player.equippedWeapon == weapon2:
+        player.firingWeapon2 = True
         player.firingMousePosition = [mouseX, mouseY]
+        player.weapon2Pos = app.position
+        player.weapon2OGPos = app.position
+
+def onMouseDrag(app, mouseX, mouseY):
+    if app.level1Loaded and player.equippedWeapon == weapon1:
+        player.firingMousePosition= [mouseX, mouseY]
         player.firingWeapon1 = True
 
 def onMouseRelease(app, mouseX, mouseY):
-    if app.level1Loaded and player.firingWeapon1:
-        player.firingWeapon1 = False
+    if app.level1Loaded:
+        if player.firingWeapon1:
+            player.firingWeapon1 = False
+
 
 def redrawAll(app):
     if app.homeScreen:
@@ -111,11 +125,32 @@ def redrawAll(app):
             if player.equippedWeapon == weapon1:
                 drawLine(*app.position, *player.firingMousePosition, fill = 'green')
             if distance(*player.firingMousePosition, *boss1.position) < 100:
-                boss1.health -= weapon1.damage
+                boss1.takeDamage(weapon1.damage)
+        if player.firingWeapon2:
+            drawCircle(*player.weapon2Pos, 10, fill = 'black')
+            dx = (player.firingMousePosition[0] - player.weapon2OGPos[0]) // 50
+            dy = (player.firingMousePosition[1] - player.weapon2OGPos[1]) // 50
+            makeProjectileMove(app, dx, dy)
     if app.deathScreen:
         drawDeathScreen(app)
     if app.victoryScreen:
         drawVictoryScreen(app)
+
+def makeProjectileMove(app, dx, dy):
+    player.weapon2Pos = [player.weapon2Pos[0] + dx, player.weapon2Pos[1] + dy]
+    if (0 > player.weapon2Pos[0]-25 or player.weapon2Pos[0]+25 > app.width or 0 > player.weapon2Pos[1] 
+            or player.weapon2Pos[1]+35> app.height):
+        player.weapon2Pos = [player.weapon2Pos[0] - dx, player.weapon2Pos[1] - dy]
+        player.firingWeapon2 = False
+    if app.level1Loaded:
+        for platform in level1.platforms:
+            if rectanglesOverlap(*platform, player.weapon2Pos[0]-25, player.weapon2Pos[1], 45, 30):
+                player.weapon2Pos = [player.weapon2Pos[0] - dx, player.weapon2Pos[1] - dy]
+                player.firingWeapon2 = False
+        if distance(*player.weapon2Pos, *boss1.position) < 100:
+            boss1.health -= weapon2.damage
+            player.weapon2Pos = [player.weapon2Pos[0] - dx, player.weapon2Pos[1] - dy]
+            player.firingWeapon2 = False
 
 def onKeyPress(app, key):
     pass
@@ -143,7 +178,7 @@ def onStep(app):
             boss1.attack1Ready = not boss1.attack1Ready
             app.counter = 0
         if distance(*app.position, *boss1.position) < 100:
-            player.health -= 1
+            player.removeHealth(1)
         if player.health <= 0:
             app.level1Loaded = False
             app.deathScreen = True
@@ -155,7 +190,7 @@ def onStep(app):
 
 def drawLevel1(app):
     drawBoss()
-    drawEnviornment1(app)
+    drawEnviornment1()
     drawPlayer(app)
 
 def drawPlayer(app):
@@ -167,7 +202,7 @@ def drawPlayer(app):
         drawRect(1402, 742, player.health, 8, fill = 'green')
 
 
-def drawEnviornment1(app):
+def drawEnviornment1():
     for elem in level1.platforms:
         drawRect(*elem, fill = 'blue')
 
@@ -177,7 +212,7 @@ def drawBoss():
         drawRect(32, 32, boss1.health, 6, fill = 'red')
     if boss1.attack1Ready:
         drawCircle(*boss1.position, 100, fill = 'red')
-        drawLabel('Attacking AHHGHH', *boss1.position)
+        drawLabel('Attacking AHHHH', *boss1.position)
     else:
         drawCircle(*boss1.position, 100, fill = 'green')
         drawLabel('Not Attacking', *boss1.position)
@@ -203,7 +238,7 @@ def boss1Attack1(app):
     los = lineOfSightCheck(app, *boss1.position, *app.position)
     if boss1.attack1Ready and los:
         drawLine(*boss1.position, *app.position, lineWidth = 5)
-        player.health -= 0.025    
+        player.removeHealth(0.025)    
 
 
 def lineOfSightCheck(app, object1X, object1Y, object2X, object2Y):
@@ -268,17 +303,20 @@ def level1VictoryParametersReset(app):
     boss1.health = 500
     player.health = 100
     app.counter = 0
+    app.jumping = False
     app.victoryScreen = False
 
 def resetLevelParameters(app):
     app.level1Loaded = False
     app.deathScreen = False
     app.homeScreen = True
+    app.jumping = False
     app.position = [app.width/2, app.height/2]
     boss1.position = [200, 200]
     boss1.health = 500
     player.health = 100
     app.counter = 0
+
 
 def main():
     runApp()
