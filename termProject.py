@@ -209,24 +209,14 @@ def onStep(app):
                 boss1.attack2Positions.append(boss1.position + app.position + boss1.position)
     if app.level2Loaded:
         app.counter += 1
-        if app.counter == 1:
+        if app.counter == 1 and boss1.attack1Ready:
             boss2.position = [random.randint(100, 500), 100]
             boss3.position = [random.randint(900, 1400), 100]
-            boss2.attack1Ready = True
-            boss3.attack1Ready = True
-        elif app.counter == 180:
-            boss2.attack1Ready = False
-            boss3.attack1Ready = False
+        elif app.counter == 180 and boss1.attack1Ready:
             app.counter = 0
         if player.health <= 0:
             app.level2Loaded = False
             app.deathScreen = True
-        if boss2.health <= 0 and boss3.health > 0:
-            boss3.attack1Ready = False
-            boss3.attack2Ready = True
-        if boss3.health <= 0 and boss2.health > 0:
-            boss2.attack1Ready = False
-            boss2.attack2Ready = True
         if boss2.health <=0 and boss3.health <= 0:
             app.level2Loaded = False
             app.victoryScreen = True
@@ -262,18 +252,18 @@ def drawBoss3():
         drawRect(32, 62, boss3.health, 6, fill = 'red')
 
 def level2Attack(app):
-    if boss2.health > 0 and boss3.health > 0:
+    if boss2.health > 500 and boss3.health > 500:
         level2Attack1(app)
+        boss1.attack1Ready = True
         if (boss2.position[0] < app.position[0] < boss3.position[0] and
             boss2.position[1] - 10 < app.position[1] < boss2.position[1] + 10):
             player.removeHealth(boss2.damage//10)
         if (distance(*app.position, *boss2.position) < 50 or 
             distance(*app.position, *boss3.position) < 50):
             player.removeHealth(boss2.damage//10)
-    if boss2.health <= 0 and boss3.health > 0:
-        level2Attack2(app, boss3)
-    if boss3.health <= 0 and boss2.health > 0:
-        level2Attack2(app, boss2)
+    if boss2.health <= 500 or boss3.health <= 500:
+        boss1.attack1Ready = False
+        level2Attack2(app)
         
 def level2Attack1(app):
     drawLine(*boss2.position, *boss3.position)
@@ -283,11 +273,11 @@ def level2Attack1(app):
 def makeBossMove(app, dy):
     boss2.position[1]= boss2.position[1] + dy
     boss3.position[1]= boss3.position[1] + dy
-    # if boss2.position[1]  > app.width or boss3.position[1] > app.width:
-    #     boss2.position[1] = 100
-    #     boss3.position[1] = 100
+    if boss2.position[1]  > app.width or boss3.position[1] > app.width:
+        boss2.position[1] = 100
+        boss3.position[1] = 100
 
-def level2Attack2(app, boss):
+def level2Attack2(app):
     pass
 
 def drawEnviornment2():
@@ -419,8 +409,6 @@ def makeProjectileMove(app, index, dx, dy):
             boss3.takeDamage(weapon2.damage)
             player.weapon2Pos.pop(index)
  
-
-
 
 def makeMove(app, dx, dy):
     app.position = [app.position[0] + dx, app.position[1] + dy]
