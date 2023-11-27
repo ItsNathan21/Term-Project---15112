@@ -487,7 +487,7 @@ def onStep(app):
         if boss1.attack3Ready:
             if app.counter % 5 == 0:
                 boss1.attack2Positions.append(boss1.position + player.position + boss1.position)
-    if boss2.active:
+    if boss2.active or boss3.active:
         if app.counter == -1:
             boss2.attack2Positions = [800, 400, []]
             boss3.attack2Positions = [800, 400, []]
@@ -759,9 +759,6 @@ def drawLevelEditor(app):
         drawRect(*platform, fill = 'blue')
     for i in range(4):
         drawRect(1400, i * 150 + 100, 100, 100, fill=None, border='black')
-
-
-
 
 def victoryParametersReset(app):
     app.homeScreen = True
