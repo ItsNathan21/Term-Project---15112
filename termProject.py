@@ -333,14 +333,17 @@ def onMousePress(app, mouseX, mouseY):
         if distance(mouseX, mouseY, 200, 500) < 100:
             app.homeScreen = False
             boss1.active = True
+            for boss in bosses[1:]:
+                boss.active = False
             app.level1Loaded = True
             app.level1Loaded = True
         if distance(mouseX, mouseY, 500, 500) < 100 and app.level1Completed:
             app.homeScreen = False
+            boss1.active = False
+            boss4.active = False
             app.level2Loaded = True
             boss2.active = True
             boss3.active = True
-            app.level2Loaded = True
         if distance(mouseX, mouseY, 1100, 500) < 100:
             app.weaponSelectionScreen = True
             app.homeScreen = False
@@ -471,10 +474,12 @@ def onStep(app):
         if app.level1Loaded:
             if player.health <= 0:
                 app.level1Loaded = False
+                boss1.active = False
                 app.deathScreen = True
             if boss1.health <= 0:
                 app.level1Loaded = False
                 app.victoryScreen = True
+                boss1.active = False
                 app.level1Completed = True
         if boss1.attack2Ready:
             if app.counter % 30 == 0:
@@ -516,9 +521,11 @@ def onStep(app):
             if player.health <= 0:
                 app.level2Loaded = False
                 app.deathScreen = True
+                boss2.active = False
             if boss2.health <=0 and boss3.health <= 0:
                 app.level2Loaded = False
                 app.victoryScreen = True
+                boss2.active = False
     if app.customLevel:
         if player.health <= 0:
             app.customLevel = False
@@ -688,18 +695,6 @@ def level2Attack2():
         drawCircle(elem[0], elem[1], 10, fill = 'gray')
         dx, dy = elem[2], elem[3]
         boss3.shootProjectilesOutwards(boss3.attack2Positions[2].index(elem), dx, dy)
-
-def drawEnviornment2():
-    for elem in level2.platforms:
-        drawRect(*elem, fill = 'blue')
-    if boss1 in customLevel.bosses:
-        drawBoss1()
-    if boss2 in customLevel.bosses:
-        drawBoss2()
-        drawBoss3()
-
-##### CUSTOM LEVEL
-#####
 
 def drawCustomLevel(app):
     for platform in customLevel.platforms:
