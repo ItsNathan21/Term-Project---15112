@@ -11,12 +11,8 @@ topBorder = [0, 0, 1600, 20]
 rightBorder = [1580, 0, 20, 800]
 bottomBorder = [0, 780, 1600, 20]
 
-level1Platforms = [leftBorder, topBorder, rightBorder, bottomBorder, [1400, 600, 100, 15], 
-                   [1500, 500, 15, 115], 
-                   [300, 300, 100, 15], 
-                   [500,600, 10, 100],
-                   [455, 650, 100, 10]]
-
+level1Platforms = [leftBorder, topBorder, rightBorder, bottomBorder, [20, 400, 600, 50], 
+                   [300, 250, 50, 400], [1300, 0, 50, 600], [1175, 400, 300, 20], [1275, 575, 100, 100]]
 level2Platforms = [leftBorder, topBorder, rightBorder, bottomBorder, [500, 600, 100, 10], [1300, 400, 200, 100]]
 
 def onAppStart(app):
@@ -57,13 +53,14 @@ def onAppStart(app):
         sprite = CMUImage(app.typhoonAnim.crop((32*i, 0, 32 + 32*i, 32)))
         app.typhoonAnimation.append(sprite)
     app.typhoonAnimationCounter = 0
-    
+    app.typhoonBook = openImage("sprites/razorBook.png")
+
     
     app.weapon2BulletImage, app.weapon2BulletImageFlip = app.weapon2BulletImage.convert('RGBA'), app.weapon2BulletImageFlip.convert('RGBA')
     app.weapon2BulletImage = CMUImage(app.weapon2BulletImage)
     app.weapon2BulletImageFlip = CMUImage(app.weapon2BulletImageFlip)
     app.boss1Tooth = CMUImage(app.boss1Tooth)
-
+    app.typhoonBook = CMUImage(app.typhoonBook)
 
     app.width, app.height = 1600, 800
     app.stepsPerSecond = 60
@@ -436,7 +433,7 @@ def onMousePress(app, mouseX, mouseY):
                 dx, dy = angleMaker(8, dx, dy)
                 weapon2.projectilePositions.append([*player.position, dx, dy])
     if (player.equippedWeapon == weapon3 and anyLevelLoaded(app) and 
-            len(weapon3.projectilePositions) < 16):
+            len(weapon3.projectilePositions) < 10):
         x, y = player.position[0], player.position[1]
         weapon3.projectilePositions += [[x+25,y,3,0,0],[x-25,y,-3,0,0],
                                         [x,y+25,0,3,0],[x,y-25,0,-3,0]]
@@ -631,10 +628,18 @@ def drawLevel1(app):
 
 def drawPlatform(app):
     if app.level1Loaded:
-        drawRect(0, 0, app.width, app.height, fill='lightgray', opacity = 50)
-        for platform in level1.platforms:
+        if boss1.attack1Ready:
+            drawRect(0, 0, app.width, app.height, fill=gradient('blue', 'lightblue', 'white', start='bottom'))
+        elif boss1.attack2Ready:
+            drawRect(0, 0, app.width, app.height, fill=gradient('red', 'brown', 'black', start='bottom'))
+        for platform in level1.platforms[:4]:
             drawRect(*platform, fill = None, border='black', borderWidth = 5)
-            drawRect(platform[0]+2.5, platform[1]+2.5, platform[2]-5, platform[3]-5, fill='purple')
+            drawRect(platform[0]+2.5, platform[1]+2.5, platform[2]-5, platform[3]-5, fill='gray')
+        for platform in level1.platforms[4:]:
+            drawRect(*platform, fill = None, border='black', borderWidth = 5)
+            drawRect(platform[0]+2.5, platform[1]+2.5, platform[2]-5, platform[3]-5, fill='gray')
+            drawLine(platform[0]+2, platform[1]+2, platform[0] + platform[2]/2, platform[1] + platform[3]-2)
+            drawLine(platform[0] + platform[2]/2, platform[1] + platform[3]-2, platform[0] + platform[2]-2, platform[1]+2)
     elif app.level2Loaded:
         for platform in level2.platforms:
             drawRect(*platform, fill = None, border = 'black', borderWidth = 5)
@@ -649,10 +654,15 @@ def drawBoss1(app):
     dx, dy = (player.position[0] - boss1.position[0])/70, (player.position[1] - boss1.position[1])/70
     if dx != 0:
         angle = 50 * math.atan(dy/dx)
-        if dx > 0:
-            drawImage(app.boss1Animation[app.boss1AnimationCounter], *boss1.position, width=200, height=200, align='center', rotateAngle = angle)
-        elif dx < 0:
-            drawImage(app.boss1AnimationMirror[app.boss1AnimationCounter], *boss1.position, width=200, height=200, align='center', rotateAngle = angle)
+        if boss1.attack1Ready and dx > 0:
+            drawImage(app.boss1Animation[0], *boss1.position, width=200, height=200, align='center', rotateAngle = angle)
+        elif boss1.attack1Ready and dx <0:
+            drawImage(app.boss1AnimationMirror[1], *boss1.position, width=200, height=200, align='center', rotateAngle = angle)
+        elif boss1.attack2Ready:
+            if dx > 0:
+                drawImage(app.boss1Animation[app.boss1AnimationCounter], *boss1.position, width=200, height=200, align='center', rotateAngle = angle)
+            elif dx < 0:
+                drawImage(app.boss1AnimationMirror[app.boss1AnimationCounter], *boss1.position, width=200, height=200, align='center', rotateAngle = angle)
 
 def projectBossNextSpot(app, newX, newY):
     drawImage(app.boss1Animation[app.boss1AnimationCounter], newX-20, newY+10, width=200, height=200, align='center', opacity = 30)
@@ -661,6 +671,7 @@ def boss1Attack(app):
     if boss1.health > 300:
         boss1Attack1(app)
     elif boss1.health > 100:
+        boss1.attack1Ready = False
         boss1.attack2Ready = True
         boss1Attack2(app)
     else:
@@ -781,7 +792,12 @@ def drawPlayer(app):
         else:
             drawImage(app.playerAnimation[0], player.position[0], player.position[1] - 10,
                     width = 140, height = 140, align='center')
-
+    if player.equippedWeapon == weapon3 and player.facingLeft:
+        drawImage(app.typhoonBook, player.position[0]-20, player.position[1] - 10,
+                    width = 60, height = 60, align='center')
+    elif player.equippedWeapon == weapon3 and not player.facingLeft:
+        drawImage(app.typhoonBook, player.position[0]+20, player.position[1] - 10,
+                    width = 60, height = 60, align='center')
     drawRect(1400, 740, 104, 10, fill = None, borderWidth = 2, border = 'black')
     drawLabel('Player Health', 1452, 730, align='center')
     if player.health > 0:
@@ -790,7 +806,20 @@ def drawPlayer(app):
 
 
 def drawHomeScreen(app):
-    drawLabel('Welcome to Boss Fight 112', app.width/2, 100, align = 'center', size = 20)
+    drawRect(0, 0, app.width, app.height, fill=gradient('black', 'gray', 'black', start='left-top'))
+    drawRect(0, 0, app.width, app.height, fill=gradient('red', 'gray', 'black', start='bottom'), opacity=50)
+    drawLabel('BOSS FIGHT 112', app.width/2, 100, align='center', size = 100, font='sacramento', 
+              italic=True,bold=True, fill=gradient('red', 'salmon', 'white', start='left-top'))
+    for i in range(3):
+        drawRect(300, 250 + 200*i, 400, 75, fill=None, border='white', align='center')
+    for i in range(3):
+        drawLabel(f'Click to Play Level {i+1}', 300, 250+200*i, font='cursive', fill='white', size=20)
+    drawImage(app.playerAnimation[0], 800, 600, width=400, height=400, align='center')
+    drawImage(app.boss1AnimationMirror[0], 1400, 200, width=250, height=250, align='center', rotateAngle=-20)
+
+
+
+
     drawRect(100, 400, 200, 200, fill = None, borderWidth = 4, border = 'black')
     drawLabel('level1', 200, 500, align='center')
     drawRect(400, 400, 200, 200, fill = None, borderWidth = 4, border = 'black')
