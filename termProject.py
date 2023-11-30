@@ -1,7 +1,8 @@
 from cmu_graphics import *
 import random
 import math
-
+from PIL import Image
+import os, pathlib
 
 ####### INITIALIZING VALUES AND BORDERS
 #######
@@ -19,6 +20,51 @@ level1Platforms = [leftBorder, topBorder, rightBorder, bottomBorder, [1400, 600,
 level2Platforms = [leftBorder, topBorder, rightBorder, bottomBorder, [500, 600, 100, 10], [1300, 400, 200, 100]]
 
 def onAppStart(app):
+    
+    
+    def openImage(fileName):
+        return Image.open(fileName)
+    app.weapon2BulletImage = openImage("sprites/bullet1.png")
+    app.weapon2BulletImageFlip = app.weapon2BulletImage.transpose(Image.FLIP_LEFT_RIGHT)
+    app.boss1Tooth = openImage("sprites/boss1Attack1.png")
+
+
+    app.boss1Anim = openImage("sprites/boss1Animation.png")
+    app.boss1AnimMirror = app.boss1Anim.transpose(Image.FLIP_LEFT_RIGHT)
+    app.boss1Animation = []
+    app.boss1AnimationMirror = []
+    for i in range(2):
+        sprite = CMUImage(app.boss1Anim.crop((275*i, 0, 275 + 275*i, 275)))
+        sprite2 = CMUImage(app.boss1AnimMirror.crop((275*i, 0, 275 + 275*i, 275)))
+        app.boss1Animation.append(sprite)
+        app.boss1AnimationMirror.append(sprite2)
+    app.boss1AnimationCounter = 0
+
+
+    app.playerAnim = openImage("sprites/playerAnimation.png")
+    app.playerAnimMir = app.playerAnim.transpose(Image.FLIP_LEFT_RIGHT)
+    app.playerAnimation, app.playerAnimationMirror = [], []
+    for i in range(3):
+        sprite = CMUImage(app.playerAnim.crop((320*i, 0, 320+320*i, 320)))
+        sprite1 = CMUImage(app.playerAnimMir.crop((320*i, 0, 320+320*i, 320)))
+        app.playerAnimation.append(sprite)
+        app.playerAnimationMirror.append(sprite1)
+    app.playerAnimationCounter = 0
+
+    app.typhoonAnim = openImage("sprites/typhoonAnimation.png")
+    app.typhoonAnimation = []
+    for i in range(5):
+        sprite = CMUImage(app.typhoonAnim.crop((32*i, 0, 32 + 32*i, 32)))
+        app.typhoonAnimation.append(sprite)
+    app.typhoonAnimationCounter = 0
+    
+    
+    app.weapon2BulletImage, app.weapon2BulletImageFlip = app.weapon2BulletImage.convert('RGBA'), app.weapon2BulletImageFlip.convert('RGBA')
+    app.weapon2BulletImage = CMUImage(app.weapon2BulletImage)
+    app.weapon2BulletImageFlip = CMUImage(app.weapon2BulletImageFlip)
+    app.boss1Tooth = CMUImage(app.boss1Tooth)
+
+
     app.width, app.height = 1600, 800
     app.stepsPerSecond = 60
     app.setMaxShapeCount(10000)
@@ -41,10 +87,11 @@ class Player():
         self.health = health
         self.damage = damage
         self.speed = 8
+        self.facingLeft = False
         self.gravity = 10
         self.jumping = False
         self.weapons = [weapon1, weapon2, weapon3, weapon4]
-        self.equippedWeapon = weapon1
+        self.equippedWeapon = weapon2
         self.firingWeapon1 = False
         self.firingWeapon2 = False
         self.weapon2Pos = []
@@ -129,16 +176,17 @@ class Boss():
                 if distance(elem[0], elem[1], *player.position) < 50:
                     player.removeHealth(self.damage)
                     self.attack3Positions[2].pop(index)
-    def shootProjectile(self, index, dx, dy):
+    def shootProjectile(self, app, index, dx, dy):
         self.attack2Positions[index][0] += dx
         self.attack2Positions[index][1] += dy
-        for platform in level2.platforms:
+
+        for platform in currentlyLoadedLevel(app)[0]:
             if rectanglesOverlap(*platform, self.attack2Positions[index][0], 
                                  self.attack2Positions[index][1], 10, 10):
                 self.attack2Positions.pop(index)
                 return
         if distance(self.attack2Positions[index][0], 
-                    self.attack2Positions[index][1], *player.position) < 50:
+                    self.attack2Positions[index][1], *player.position) < 30:
             player.removeHealth(self.damage)
             self.attack2Positions.pop(index)
     def shootProjectilesOutwards(self, index, dx, dy):
@@ -247,10 +295,10 @@ def rectanglesOverlap(left1, top1, width1, height1,
     return (bottom1 >= top2 and bottom2 >= top1 and right1 >= left2 and right2 >= left1 )
 
 def lineOfSightCheck(app, object1X, object1Y, object2X, object2Y):
-    dx = (object2X - object1X) / 25
-    dy = (object2Y - object1Y) / 25
+    dx = (object2X - object1X) / 35
+    dy = (object2Y - object1Y) / 35
     rect1 = [object1X + dx, object1Y + dy, 10, 10]
-    for i in range(25):
+    for i in range(35):
         drawRect(*rect1, fill = None)
         for platform in currentlyLoadedLevel(app)[0]:
             if rectanglesOverlap(*platform, *rect1):
@@ -266,14 +314,16 @@ def weaponShootingMechanics(app, bossList):
                 elem.takeDamage(weapon1.damage)
     if weapon2.firing:
         for elem in weapon2.projectilePositions:
-            drawCircle(elem[0], elem[1], 10, fill = 'black')
             dx, dy = elem[2], elem[3]
+            angle = 50 * math.atan(dy/dx) if dx > 0 else 180 + 50 * math.atan(dy/dx)
+            drawImage(app.weapon2BulletImage, elem[0], elem[1], width=100, height=100, rotateAngle = angle, align = 'center')
             weapon2.projectileMove(app, weapon2.projectilePositions.index(elem), dx, dy)
     if player.equippedWeapon == weapon3:
         for elem in weapon3.projectilePositions:
+            drawImage(app.typhoonAnimation[app.typhoonAnimationCounter], elem[0], elem[1], align='center', 
+                      width=90, height = 70)
             if elem[4] < 60:
                 dx, dy = elem[2], elem[3]
-                drawCircle(elem[0], elem[1], 10, fill = 'black')
                 weapon3.projectileMove(app, weapon3.projectilePositions.index(elem), dx, dy)
                 elem[4] += 1
             else:
@@ -291,8 +341,8 @@ def weaponShootingMechanics(app, bossList):
                               (bossList[0].position[1] - elem[1]) / 70)
                 if dx!=0:
                     dx, dy = angleMaker(7, dx, dy)
-                    drawCircle(elem[0], elem[1], 10, fill = 'black')
                     weapon3.projectileMove(app, weapon3.projectilePositions.index(elem), dx, dy)
+
     if player.equippedWeapon == weapon4:
         for elem in weapon4.projectilePositions:
             drawLine(elem[0], elem[1], elem[0], elem[1] + 20)
@@ -445,7 +495,7 @@ def redrawAll(app):
         drawCustomLevel(app)
         if boss1 in customLevel.bosses and boss1.active:
             boss1Attack(app)
-            drawBoss1()
+            drawBoss1(app)
             if app.counter == 179:
                 boss1.teleport(boss1.projectX, boss1.projectY)
             elif 100 < app.counter < 180:
@@ -542,10 +592,17 @@ def onStep(app):
     if player.jumping:
         player.move(app, 0, -19)
     if anyLevelLoaded(app):
+        if app.counter % 2 == 0 and player.equippedWeapon == weapon3:
+            app.typhoonAnimationCounter = (app.typhoonAnimationCounter + 1) % 5
+        if app.counter % 10 == 0 and boss1.active:
+            app.boss1AnimationCounter = (app.boss1AnimationCounter +1) % 2
+        if player.jumping and app.counter % 7 ==0 :
+            app.playerAnimationCounter = (app.playerAnimationCounter + 1) % 3
         player.move(app, 0, player.gravity)
         app.counter += 1
         if app.counter == 180:
             app.counter = 0
+
 def onKeyPress(app, key):
     pass
 
@@ -556,8 +613,10 @@ def onKeyRelease(app, key):
 def onKeyHold(app, keys):
     if anyLevelLoaded(app):
         if 'd' in keys and 'a' not in keys:
+            player.facingLeft = False
             player.move(app, player.speed, 0)
         if 'a' in keys and 'd' not in keys:
+            player.facingLeft = True
             player.move(app, -player.speed, 0)
         if 'w' in keys:
             player.jumping = True
@@ -566,34 +625,37 @@ def onKeyHold(app, keys):
 #####
 
 def drawLevel1(app):
-    drawBoss1()
-    drawEnviornment1()
+    drawPlatform(app)
+    drawBoss1(app)
     drawPlayer(app)
 
-def drawEnviornment1():
-    for elem in level1.platforms:
-        drawRect(*elem, fill = 'blue')
+def drawPlatform(app):
+    if app.level1Loaded:
+        drawRect(0, 0, app.width, app.height, fill='lightgray', opacity = 50)
+        for platform in level1.platforms:
+            drawRect(*platform, fill = None, border='black', borderWidth = 5)
+            drawRect(platform[0]+2.5, platform[1]+2.5, platform[2]-5, platform[3]-5, fill='purple')
+    elif app.level2Loaded:
+        for platform in level2.platforms:
+            drawRect(*platform, fill = None, border = 'black', borderWidth = 5)
+            drawRect(platform[0] + 2.5, platform[1] + 2.5, platform[2]-5, platform[3]-5, fill = 'hotpink')
+            if level2.platforms.index(platform) > 3:
+                drawArc(platform[0] + platform[2]/2, platform[1] + platform[3]/2, platform[2], platform[3], 100, 45)
 
-def drawBoss1():
+def drawBoss1(app):
     if boss1.health > 0:
         drawRect(30, 30, 504, 10, fill = None, borderWidth = 2, border = 'black')
         drawRect(32, 32, boss1.health, 6, fill = 'red')
-    if boss1.attack1Ready:
-        drawCircle(*boss1.position, 100, fill = 'red')
-        drawLabel('Attacking AHHHH', *boss1.position)
-    elif not boss1.attack1Ready and boss1.health > 300:
-        drawCircle(*boss1.position, 100, fill = 'green')
-        drawLabel('Not Attacking', *boss1.position)
-    if boss1.attack2Ready:
-        drawCircle(*boss1.position, 100, fill = 'red')
-        drawLabel('projectile attacks now', *boss1.position)
-    if boss1.attack3Ready:
-        drawCircle(*boss1.position, 100, fill = 'red')
-        drawLabel('ENRAGED MODE', *boss1.position)
+    dx, dy = (player.position[0] - boss1.position[0])/70, (player.position[1] - boss1.position[1])/70
+    if dx != 0:
+        angle = 50 * math.atan(dy/dx)
+        if dx > 0:
+            drawImage(app.boss1Animation[app.boss1AnimationCounter], *boss1.position, width=200, height=200, align='center', rotateAngle = angle)
+        elif dx < 0:
+            drawImage(app.boss1AnimationMirror[app.boss1AnimationCounter], *boss1.position, width=200, height=200, align='center', rotateAngle = angle)
 
 def projectBossNextSpot(app, newX, newY):
-    drawCircle(newX, newY, 100, fill = None, border = 'black', borderWidth = 2)
-    drawLabel('boss is about to move here', newX, newY)
+    drawImage(app.boss1Animation[app.boss1AnimationCounter], newX-20, newY+10, width=200, height=200, align='center', opacity = 30)
 
 def boss1Attack(app):
     if boss1.health > 300:
@@ -606,17 +668,22 @@ def boss1Attack(app):
         boss1Attack3(app)
 
 def boss1Attack1(app):
-    los = lineOfSightCheck(app, *boss1.position, *player.position)
-    if boss1.attack1Ready and los:
-        drawLine(*boss1.position, *player.position, lineWidth = 5)
+    if boss1.attack1Ready and lineOfSightCheck(app, *boss1.position, *player.position):
+        drawPolygon(*boss1.position, player.position[0], player.position[1] - 10, 
+                    player.position[0], player.position[1] + 10)
+        drawPolygon(*boss1.position, player.position[0], player.position[1] -5, 
+                    player.position[0], player.position[1] + 5, fill='red')
         player.removeHealth(0.025)    
 
 def boss1Attack2(app):
     for elem in boss1.attack2Positions:
-        drawCircle(elem[0], elem[1], 10, fill = 'skyblue')
-        dx = (elem[2] - elem[4]) / 30
-        dy = (elem[3] - elem[5]) / 30
-        boss1.shootProjectile(boss1.attack2Positions.index(elem), dx, dy)
+        dx, dy = (player.position[0] - boss1.position[0])/70, (player.position[1] - boss1.position[1])/70
+        if dx != 0:
+            angle = 90 + 50 * math.atan(dy/dx) if dx > 0 else 270 + 50 * math.atan(dy/dx)
+            drawImage(app.boss1Tooth, elem[0], elem[1], width = 50, height = 50, rotateAngle = angle, align='center')
+            dx = (elem[2] - elem[4]) / 70
+            dy = (elem[3] - elem[5]) / 70
+            boss1.shootProjectile(app, boss1.attack2Positions.index(elem), dx, dy)
 
 def boss1Attack3(app):
     boss1Attack2(app)
@@ -627,12 +694,8 @@ def boss1Attack3(app):
 def drawLevel2(app):
     drawBoss2()
     drawBoss3()
-    drawEnviornment2()
+    drawPlatform(app)
     drawPlayer(app)
-
-def drawEnviornment2():
-    for elem in level2.platforms:
-        drawRect(*elem, fill = 'blue')
 
 def drawBoss2():
     if boss2.health > 0:
@@ -704,12 +767,27 @@ def drawCustomLevel(app):
 ##### MISC DRAWINGS & RESETS
 #####
 def drawPlayer(app):
-    drawRect(*player.position, 50, 70, fill = 'hotpink', align = 'center')
-    drawCircle(*player.position, 25, fill = None, border = 'black')
+    if player.jumping:
+        if player.facingLeft:
+            drawImage(app.playerAnimationMirror[app.playerAnimationCounter], player.position[0], player.position[1] - 10,
+                    width = 140, height = 140, align='center')
+        else:
+            drawImage(app.playerAnimation[app.playerAnimationCounter], player.position[0], player.position[1] - 10,
+                    width = 140, height = 140, align='center')
+    else:
+        if player.facingLeft:
+            drawImage(app.playerAnimationMirror[2], player.position[0], player.position[1] - 10,
+                    width = 140, height = 140, align='center')
+        else:
+            drawImage(app.playerAnimation[0], player.position[0], player.position[1] - 10,
+                    width = 140, height = 140, align='center')
+
     drawRect(1400, 740, 104, 10, fill = None, borderWidth = 2, border = 'black')
     drawLabel('Player Health', 1452, 730, align='center')
     if player.health > 0:
         drawRect(1402, 742, player.health, 8, fill = 'green')
+    
+
 
 def drawHomeScreen(app):
     drawLabel('Welcome to Boss Fight 112', app.width/2, 100, align = 'center', size = 20)
