@@ -26,7 +26,7 @@ def onAppStart(app):
     app.victoryScreenImage = openImage("sprites/victory.jpg")
     app.boss2Phase1 = openImage("sprites/boss2.png")
     app.boss3Phase1 = openImage("sprites/boss3.png")
-
+    app.staff = openImage("sprites/staff.png")
 
 
     app.boss2Anim = openImage("sprites/boss2Animation.png")
@@ -83,10 +83,11 @@ def onAppStart(app):
     app.victoryScreenImage = CMUImage(app.victoryScreenImage)
     app.boss2Phase1 = CMUImage(app.boss2Phase1)
     app.boss3Phase1 = CMUImage(app.boss3Phase1)
-
+    app.staff = CMUImage(app.staff)
 
     app.width, app.height = 1600, 800
     app.stepsPerSecond = 60
+    app.colors, app.platColors =[], []
     app.setMaxShapeCount(10000)
     app.counter = -1
     app.homeScreen = True
@@ -111,7 +112,7 @@ class Player():
         self.gravity = 10
         self.jumping = False
         self.weapons = [weapon1, weapon2, weapon3, weapon4]
-        self.equippedWeapon = weapon2
+        self.equippedWeapon = weapon1
         self.firingWeapon1 = False
         self.firingWeapon2 = False
         self.weapon2Pos = []
@@ -264,13 +265,15 @@ class Level():
         self.makingPlatform = False
         self.platformOutlinePosition = []
         self.bosses = []
+        self.colors = []
     def addPlatform(self, platform):
         self.platforms.append(platform)
 
 weapon1 = Weapon(1, 'laser')
 weapon2 = Weapon(100, 'bulletboy')
 weapon3 = Weapon(5, 'Razoablade Typhoon')
-weapon4 = Weapon(50, 'blood rain')
+weapon4 = Weapon(50, 'lightning')
+
 
 player = Player(100, 10)
 
@@ -314,11 +317,11 @@ def rectanglesOverlap(left1, top1, width1, height1,
     right2 = left2 + width2
     return (bottom1 >= top2 and bottom2 >= top1 and right1 >= left2 and right2 >= left1 )
 
-def lineOfSightCheck(app, object1X, object1Y, object2X, object2Y):
-    dx = (object2X - object1X) / 35
-    dy = (object2Y - object1Y) / 35
+def lineOfSightCheck(app, object1X, object1Y, object2X, object2Y, amount):
+    dx = (object2X - object1X) / amount
+    dy = (object2Y - object1Y) / amount
     rect1 = [object1X + dx, object1Y + dy, 10, 10]
-    for i in range(35):
+    for i in range(amount):
         drawRect(*rect1, fill = None)
         for platform in currentlyLoadedLevel(app)[0]:
             if rectanglesOverlap(*platform, *rect1):
@@ -327,8 +330,9 @@ def lineOfSightCheck(app, object1X, object1Y, object2X, object2Y):
     return True
 
 def weaponShootingMechanics(app, bossList):
-    if weapon1.firing and lineOfSightCheck(app, *player.position, *weapon1.mousePosition):
-        drawLine(*player.position, *weapon1.mousePosition, fill = 'green')
+    if weapon1.firing and lineOfSightCheck(app, *player.position, *weapon1.mousePosition, 35):
+        drawPolygon(*player.position, weapon1.mousePosition[0]-5, weapon1.mousePosition[1],
+                    weapon1.mousePosition[0]+5,weapon1.mousePosition[1])
         for elem in bossList:
             if distance(*weapon1.mousePosition, *elem.position) < 100:
                 elem.takeDamage(weapon1.damage)
@@ -364,14 +368,38 @@ def weaponShootingMechanics(app, bossList):
                     weapon3.projectileMove(app, weapon3.projectilePositions.index(elem), dx, dy)
 
     if player.equippedWeapon == weapon4:
-        for elem in weapon4.projectilePositions:
-            drawLine(elem[0], elem[1], elem[0], elem[1] + 20)
-            weapon4.projectileMove(app, weapon4.projectilePositions.index(elem), 0, 5)
+        for list in weapon4.projectilePositions:
+            for i in range(len(list)-2):
+                firstPoint, secondPoint = list[i], list[i+1]
+                drawPolygon(firstPoint[0]-5, firstPoint[1], firstPoint[0]+5, firstPoint[1], 
+                            *secondPoint, fill='white', border='blue')
+            updateLightningPositions(app, weapon4.projectilePositions.index(list))
+
+
+def updateLightningPositions(app, index):
+    list = weapon4.projectilePositions[index]
+    start, end, previous = list[0], list[-1], list[-2]
+    center = [(previous[0]+list[-3][0])/2, (previous[1]+list[-3][1])/2]
+    if previous == end or not lineOfSightCheck(app, *previous, *list[-3], 1):
+        weapon4.projectilePositions.pop(index)
+        return
+    if distance(*previous, *end) < 50:
+        list = list[:-1] + [end] + list[-1:]
+        weapon4.projectilePositions[index]=list
+        return
+    nextX = random.randint(start[0]-20, start[0]+40)
+    nextY = random.randint(previous[1], previous[1]+40)
+    list = list[:-1] + [[nextX, nextY]] + list[-1:]
+    for boss in currentlyLoadedLevel(app)[1:]:
+        if distance(*center, *boss.position) < boss.radius:
+            boss.takeDamage(weapon4.damage)
+            weapon4.projectilePositions.pop(index)
+            return
+    weapon4.projectilePositions[index] = list    
+
 
 ####### ALL APP FUNCTIONS
 ########
-
-
 
 def onMousePress(app, mouseX, mouseY):
     if app.homeScreen:
@@ -406,7 +434,7 @@ def onMousePress(app, mouseX, mouseY):
 
     if app.customLevelEditor:
         for i in range(4):
-            if distance(mouseX, mouseY, 1450, i * 150 + 150) < 50:
+            if distance(mouseX, mouseY, 1450, i * 150 + 200) < 50:
                 if i == 0 and boss1 not in customLevel.bosses:
                     customLevel.bosses.append(boss1)
                 elif i == 1 and boss2 not in customLevel.bosses:
@@ -416,9 +444,32 @@ def onMousePress(app, mouseX, mouseY):
                 elif i == 3:
                     customLevel.platforms = [leftBorder, topBorder, rightBorder, bottomBorder]
                 return
-        if distance(mouseX,mouseY, 200, 700) < 50:
-            app.customLevelEditor = False
-            app.homeScreen = True
+        for i in range(2):
+            if distance(mouseX, mouseY, 250,625+100*i)<38:
+                if i == 0:
+                    app.colors=[]
+                    app.platColors=[]
+                    return
+                else:
+                    app.homeScreen = True
+                    app.customLevelEditor = False
+                    return
+        colors = ['red', 'yellow', 'green', 'blue', 'purple', 'black', 'white']
+        for i in range(7):
+            if distance(mouseX,mouseY,75,225+100*i) < 25:
+                if colors[i] not in app.colors:
+                    app.colors.append(colors[i])
+                    return
+                else:
+                    app.colors.pop(app.colors.index(colors[i]))
+                    return  
+        for i in range(7):
+            if distance(mouseX,mouseY,175,225+100*i)<25:
+                if colors[i] not in app.platColors:
+                    app.platColors.append(colors[i])
+                    return
+                else:
+                    app.platColors.pop(app.platColors.index(colors[i]))
         if not customLevel.makingPlatform:
             customLevel.platformOutlinePosition = [mouseX, mouseY, 1, 1]
         if not customLevel.makingPlatform:
@@ -470,10 +521,14 @@ def onMousePress(app, mouseX, mouseY):
         x, y = player.position[0], player.position[1]
         weapon3.projectilePositions += [[x+25,y,3,0,0],[x-25,y,-3,0,0],
                                         [x,y+25,0,3,0],[x,y-25,0,-3,0]]
-    
+        
     if player.equippedWeapon == weapon4 and anyLevelLoaded(app):
-        weapon4.projectilePositions += [[mouseX, random.randint(20, 40)], 
-            [mouseX - 30, random.randint(20, 40)], [mouseX + 30, random.randint(20, 40)]]
+        if mouseY > 50:
+            startingPoint = [mouseX, 21]
+            firstPoint = [random.randint(mouseX-50, mouseX+50), random.randint(50, 100)]
+            endPoint = [mouseX, mouseY]
+            list = [startingPoint, firstPoint, endPoint]
+            weapon4.projectilePositions.append(list)
         
 def onMouseMove(app, mouseX, mouseY):
     if app.customLevelEditor and customLevel.makingPlatform:
@@ -513,18 +568,13 @@ def redrawAll(app):
             drawCircle(boss3.projectX, 100, boss3.radius, fill = None, border = 'black')
     if app.weaponSelectionScreen:
         drawWeaponSelectionScreen(app)
-        # for i in range(4):
-        #     drawRect(300, i * 200 + 50, 100, 100, fill = None, border = 'black')
-        #     drawLabel('click here to choose weapon',300, i * 200 + 100, fill=None, border='black')
-        # drawWeaponDescriptions(app)
-        # drawRect(900, 600, 100, 100, align='center')
     if app.customLevelEditor:
         drawLevelEditor(app)
         if customLevel.makingPlatform:
-            drawRect(*customLevel.platformOutlinePosition, fill = None, border='blue')
+            drawRect(*customLevel.platformOutlinePosition, fill = None, border='blue', dashes=True)
     if app.customLevel:
-        weaponShootingMechanics(app, customLevel.bosses)
         drawCustomLevel(app)
+        weaponShootingMechanics(app, customLevel.bosses)
         if boss1 in customLevel.bosses and boss1.active:
             boss1Attack(app)
             drawBoss1(app)
@@ -537,8 +587,8 @@ def redrawAll(app):
                 drawCircle(boss2.projectX, 100, boss2.radius, fill = None, border = 'black')
                 drawCircle(boss3.projectX, 100, boss3.radius, fill = None, border = 'black')
             level2Attack(app)
-            drawBoss2()
-            drawBoss3()
+            drawBoss2(app)
+            drawBoss3(app)
     if app.deathScreen:
         drawDeathScreen(app)
     if app.victoryScreen:
@@ -728,7 +778,7 @@ def boss1Attack(app):
         boss1Attack3(app)
 
 def boss1Attack1(app):
-    if boss1.attack1Ready and lineOfSightCheck(app, *boss1.position, *player.position):
+    if boss1.attack1Ready and lineOfSightCheck(app, *boss1.position, *player.position, 35):
         drawPolygon(*boss1.position, player.position[0], player.position[1] - 10, 
                     player.position[0], player.position[1] + 10)
         drawPolygon(*boss1.position, player.position[0], player.position[1] -5, 
@@ -836,8 +886,19 @@ def level2Attack2(app):
         boss3.shootProjectilesOutwards(boss3.attack2Positions[2].index(elem), dx, dy)
 
 def drawCustomLevel(app):
-    for platform in customLevel.platforms:
-        drawRect(*platform, fill = 'blue')
+    if len(app.colors) >=2:
+        drawRect(0, 0, app.width, app.height, fill=gradient(*app.colors, start='left-top'))
+    elif len(app.colors) ==1:
+        drawRect(0, 0, app.width, app.height, fill=app.colors[0])
+    if len(app.platColors) >= 2:
+        for platform in customLevel.platforms:
+            drawRect(*platform, fill=gradient(*app.platColors, start='left'))
+    elif len(app.platColors) == 1:
+        for platform in customLevel.platforms:
+            drawRect(*platform, fill=app.platColors[0])
+    else:
+        for platform in customLevel.platforms:
+            drawRect(*platform, fill='orange')
     drawPlayer(app)
 
 ##### MISC DRAWINGS & RESETS
@@ -863,10 +924,10 @@ def drawPlayer(app):
     elif player.equippedWeapon == weapon3 and not player.facingLeft:
         drawImage(app.typhoonBook, player.position[0]+20, player.position[1] - 10,
                     width = 60, height = 60, align='center')
-    drawRect(1400, 740, 104, 10, fill = None, borderWidth = 2, border = 'black')
-    drawLabel('Player Health', 1452, 730, align='center')
     if player.health > 0:
-        drawRect(1402, 742, player.health, 8, fill = 'green')
+        drawRect(1196, 721, 308, 28, fill='gold', border='black')
+        drawRect(1200, 725, player.health*3, 20, fill='green')
+        drawLabel(f'Player Health:{int(player.health)}', 1350, 710, size=20, fill='white')
     
 
 
@@ -875,7 +936,7 @@ def drawHomeScreen(app):
     drawRect(0, 0, app.width, app.height, fill=gradient('red', 'gray', 'black', start='bottom'), opacity=30)
     drawLabel('BOSS FIGHT 112', app.width/2-5, 97.5, align='center', size = 100, font='sacramento', 
               italic=True,bold=True, fill='white', border='black')
-    drawLabel('BOSS FIGHT 112', app.width/2, 100, align='center', size = 100, font='sacramento', 
+    drawLabel('BOSS FIGHT 112', app.width/2, 100, align='center', size = 100, 
               italic=True,bold=True, fill=gradient('red', 'salmon', 'orange', start='left-top'), border='black')
     for i in range(3):
         drawRect(296, 246 + 200*i, 400, 75, border='black', align='center', 
@@ -928,25 +989,54 @@ def drawWeaponSelectionScreen(app):
     text1 = 'Lazer Pointer, Click the Click the screen to shoot a laser at that position'
     text2 = 'Basic Bullet Gun, click to shoot a projectile in that direction'
     text3 = 'Razorblade Typhoon, click to shoot tracking projectiles in a volley around you'
-    text4 = 'Blood rain, click to summon projectiles from the air'
+    text4 = 'Lightning rod, click to summon projectiles from the air'
     texts = [text1, text2, text3, text4]
     for i in range(4):
         drawRect(350, 50 + 200*i, 300, 100, 
                  fill=gradient('red', 'white', start='right-top'))
         drawLabel(texts[i], 700, 100 + 200*i, size=20 , align='left')
+    drawPolygon(350,100,645,55,645,145,fill='green')
+    drawImage(app.typhoonBook, 500, 510, width=175, height=175, align='center')
+    drawImage(app.weapon2BulletImage, 500, 325, width=175, height=175, align='center')
+    drawImage(app.staff, 500, 700, width=200, height=200, rotateAngle=90, align='center')
 
 def drawLevelEditor(app):
-    drawRect(200, 700, 50, 50, align='center', fill = None, border='black')
-    drawLabel('CUSTOM LEVELS! CLICK TO MAKE PLATFORMS AND CHOOSE BOSSES', 800, 100, align='center', size = 15)
-    drawLabel('Return', 200, 700, align='center')
-    drawLabel('Click to Enable Boss1', 1450, 150, align = 'center')
-    drawLabel('Click To Enable Boss2&3', 1450, 300, align='center')
-    drawLabel('Click To Enable Boss4', 1450, 450, align='center')
-    drawLabel('Clear All', 1450, 600, align='center')
-    for platform in customLevel.platforms:
-        drawRect(*platform, fill = 'blue')
+    fil = 'white' if len(app.colors) >= 2 else 'black'
+    if len(app.colors) >= 2:
+        drawRect(0, 0, app.width, app.height, fill=gradient(*app.colors, start='left-top'))
+    elif len(app.colors) == 1:
+        drawRect(0, 0, app.width, app.height, fill = app.colors[0])
+    if len(app.platColors) >=2:
+        for platform in customLevel.platforms:
+            drawRect(*platform, fill = gradient(*app.platColors, start='left'))
+    elif len(app.platColors) == 1:
+        for platform in customLevel.platforms:
+            drawRect(*platform, fill=app.platColors[0])
+    else:
+        for platform in customLevel.platforms:
+            drawRect(*platform, fill='orange')
+    colors = ['red', 'yellow', 'green', 'blue', 'purple', 'black', 'white']
+    for i in range(7):
+        drawRect(50, 200 + 100*i, 50, 50, fill=colors[i], border='black')
+        drawRect(150, 200 + 100*i, 50, 50, fill=colors[i], border='black')
+    words=['Clear Theme', 'Save']
+    for i in range(2):
+        drawRect(250, 625+100*i, 75, 75, align='center', fill=None, border=fil)
+        drawLabel(words[i], 250, 625+100*i, align='center', fill=fil)
     for i in range(4):
-        drawRect(1400, i * 150 + 100, 100, 100, fill=None, border='black')
+        drawRect(1400, i * 150 + 150, 100, 100, fill=None, border=fil)
+        if i < 3:
+            drawLabel(f'Enable Boss {i+1}', 1450, i*150+200, align='center', fill=fil)
+        elif i == 3:
+            drawLabel('Clear All', 1450, i*150+200, align='center', fill=fil)
+    drawLabel('CUSTOM LEVEL! CLICK TO MAKE PLATFORMS AND CHOOSE BOSSES', 798, 88, 
+              align='center', size = 40, bold=True, italic=True, fill='gray', border='black')
+    drawLabel('CUSTOM LEVEL! CLICK TO MAKE PLATFORMS AND CHOOSE BOSSES', 800, 90, 
+              align='center', size = 40, bold=True, italic=True, 
+              fill=gradient('red', 'yellow', 'green', 'blue', start='left'))
+    drawLabel('Background      Platform', 120, 175, align='center', 
+              fill=fil, size=15)
+
 
 def victoryParametersReset(app):
     app.homeScreen = True
