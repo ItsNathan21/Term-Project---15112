@@ -2,7 +2,7 @@ from cmu_graphics import *
 import random
 import math
 from PIL import Image
-import os, pathlib
+# from numpy import *
 
 ####### INITIALIZING VALUES AND BORDERS
 #######
@@ -15,7 +15,7 @@ level1Platforms = [leftBorder, topBorder, rightBorder, bottomBorder, [20, 400, 6
                    [300, 250, 50, 400], [1300, 0, 50, 600], [1175, 400, 300, 20], [1275, 575, 100, 100]]
 level2Platforms = [leftBorder, topBorder, rightBorder, bottomBorder, [0, 150, 400, 50], [0, 600, 400, 50],
                    [1200, 150, 400, 50], [1200, 600, 400, 50], [500, 500, 600, 25]]
-leve3Platforms = [leftBorder, topBorder, rightBorder, bottomBorder, [0, 150, 400, 50], [0, 600, 400, 50],
+leve3Platforms = [leftBorder, topBorder, rightBorder, [0, 150, 400, 50], [0, 600, 400, 50],
                    [1200, 150, 400, 50], [1200, 600, 400, 50], [500, 500, 600, 25]]
 
 def onAppStart(app):
@@ -92,6 +92,7 @@ def onAppStart(app):
     app.colors, app.platColors =[], []
     app.setMaxShapeCount(10000)
     app.counter = -1
+    app.gravity = 0.0001
     app.homeScreen = True
     app.weaponSelectionScreen, app.armorSelectionScreen = False, False
     app.customLevelEditor = False
@@ -170,8 +171,9 @@ class Boss():
     def touching(self):
         return distance(*player.position, *self.position) < 50
     def octagonalPositions(self, x, y):
-        return [[x+25,y,5,0],[x-25,y,-5,0],[x,y+25,0,5],[x,y-25,0,-5],[x+25,y+25,5,5],
-                [x+25,y-25,5,-5],[x-25,y-25,-5,-5],[x-25,y+25,-5,5]]
+        return [[x+25,y,x+300,y-20,0,8],[x-25,y,x-300,y-20,0,-8],[x,y+25,x,y-300,0,0],
+                [x,y-25,x,y+300,0,0],[x+25,y+25,x+300,y-50,0,8],
+                [x+25,y-25,x+300,y,0,8],[x-25,y-50,x-300,y,0,-8],[x-25,y+25,x+300,y+20,0,-8]]
     def shotgunPositions(self, x, y):
         return [[x+25,y],[x-25,y],[x,y+25],[x,y-25],[x+25,y+25],
                 [x+25,y-25],[x-25,y-25],[x-25,y+25]]
@@ -239,7 +241,7 @@ class Weapon():
         return f'{self.name}'
     def projectileMove(self, app, index, dx, dy):
         self.projectilePositions[index][0] += dx
-        self.projectilePositions[index][1] += dy
+        self.projectilePositions[index][1] += 2
         for platform in currentlyLoadedLevel(app)[0]:
             if rectanglesOverlap(*platform, self.projectilePositions[index][0], 
                             self.projectilePositions[index][1], 10, 10):
@@ -251,11 +253,42 @@ class Weapon():
                 self.projectilePositions.pop(index)
                 boss.takeDamage(self.damage)
                 return
+        if app.level3Loaded:
+            if self.projectilePositions[index][1] > 800:
+                self.projectilePositions.pop(index)
+                return
     def reset(self):
         self.firing = False
         self.mousePosition = []
         self.projectilePositions = []
-
+    def parabolicMove(self, app, index):
+        dx = self.projectilePositions[index][5]
+        if (self.projectilePositions[index][3] < (self.projectilePositions[index][1] - 20) and 
+            self.projectilePositions[index][4] == 0):
+            m = max(self.projectilePositions[index][3],self.projectilePositions[index][1])
+            s = min(self.projectilePositions[index][3],self.projectilePositions[index][1])
+            dy = (s-m)/30
+        else:
+            self.projectilePositions[index][4] = 1
+            m = max(self.projectilePositions[index][3],self.projectilePositions[index][1])
+            s = min(self.projectilePositions[index][3],self.projectilePositions[index][1])
+            dy = (m-s)/30
+        self.projectilePositions[index] = [self.projectilePositions[index][0] + dx, 
+                                           self.projectilePositions[index][1] + dy,
+                                           *self.projectilePositions[index][2:]]       
+        for platform in currentlyLoadedLevel(app)[0]:
+            if rectanglesOverlap(*platform, self.projectilePositions[index][0], 
+                            self.projectilePositions[index][1], 10, 10):
+                self.projectilePositions.pop(index)
+                return 
+        for boss in currentlyLoadedLevel(app)[1:]:
+            if distance(self.projectilePositions[index][0], 
+                        self.projectilePositions[index][1], *boss.position) < boss.radius:
+                self.projectilePositions.pop(index)
+                boss.takeDamage(self.damage)
+                return
+        
+        
 class Armor():
     def __init__(self, shields):
         self.shield = shields
@@ -282,7 +315,7 @@ player = Player(100, 10)
 
 level1 = Level(level1Platforms)
 level2 = Level(level2Platforms)
-level3 = Level([])
+level3 = Level(leve3Platforms)
 customLevel = Level([leftBorder, topBorder, rightBorder, bottomBorder])
 
 
@@ -347,11 +380,10 @@ def weaponShootingMechanics(app, bossList):
                 elem.takeDamage(weapon1.damage)
     if weapon2.firing:
         for elem in weapon2.projectilePositions:
-            dx, dy = elem[2], elem[3]
-            angle = 50 * math.atan(dy/dx) if dx > 0 else 180 + 50 * math.atan(dy/dx)
-            drawImage(app.weapon2BulletImage, elem[0], elem[1], width=100, height=100, rotateAngle = angle, align = 'center')
-            weapon2.projectileMove(app, weapon2.projectilePositions.index(elem), dx, dy)
+            drawCircle(elem[0], elem[1], 10, fill='gray')
+            weapon2.parabolicMove(app, weapon2.projectilePositions.index(elem))
     if player.equippedWeapon == weapon3:
+        print(weapon3.projectilePositions)
         for elem in weapon3.projectilePositions:
             drawImage(app.typhoonAnimation[app.typhoonAnimationCounter], elem[0], elem[1], align='center', 
                       width=90, height = 70)
@@ -534,13 +566,10 @@ def onMousePress(app, mouseX, mouseY):
 
     if player.equippedWeapon == weapon2 and anyLevelLoaded(app):
         weapon2.firing = True
-        weapon2.mousePosition = [mouseX, mouseY]
-        if len(weapon2.projectilePositions) < 10:
-            dx, dy = ((weapon2.mousePosition[0] - player.position[0])/70, 
-                      (weapon2.mousePosition[1] - player.position[1])/70)
-            if dx != 0:
-                dx, dy = angleMaker(8, dx, dy)
-                weapon2.projectilePositions.append([*player.position, dx, dy])
+        dx = (mouseX - player.position[0])/50
+        end = mouseY if mouseY < player.position[1] else player.position[1] -20
+        weapon2.projectilePositions.append([player.position[0], player.position[1], mouseX, end, 0, dx])
+   
     
     if (player.equippedWeapon == weapon3 and anyLevelLoaded(app) and 
             len(weapon3.projectilePositions) < 10):
@@ -714,6 +743,15 @@ def onStep(app):
                 app.level2Loaded = False
                 app.victoryScreen = True
                 boss2.active = False
+                
+    if app.level3Loaded:
+        scroll(app)
+        if app.counter % 60 == 0 and app.counter != 0:
+            addPlatform(app)
+        if player.position[1] > 800 and app.counter %5==0:
+            player.removeHealth(1)
+        
+    
     if app.customLevel:
         if player.health <= 0:
             app.customLevel = False
@@ -743,6 +781,18 @@ def onStep(app):
         app.counter += 1
         if app.counter == 180:
             app.counter = 0
+
+def scroll(app):
+    for i in range(3,len(level3.platforms)):
+        level3.platforms[i][0]-=10
+    for platform in level3.platforms:
+        if platform[0] + platform[2] <= 0:
+            level3.platforms.pop(level3.platforms.index(platform))
+        
+def addPlatform(app):
+    width=random.randint(200,300)
+    top=random.randint(100,700)
+    level3.platforms += [[1600,top,width,20]]
 
 def onKeyPress(app, key):
     pass
@@ -796,6 +846,9 @@ def drawPlatform(app):
         for platform in level2.platforms:
             drawRect(*platform, fill = None, border = 'black', borderWidth = 5)
             drawRect(platform[0] + 2.5, platform[1] + 2.5, platform[2]-5, platform[3]-5, fill = 'hotpink')
+    elif app.level3Loaded:
+        for platform in level3.platforms:
+            drawRect(*platform,fill='blue')
 
 def drawBoss1(app):
     if boss1.health > 0:
@@ -937,11 +990,25 @@ def level2Attack2(app):
     boss3.bossMove(dx2, dy2)
     for elem in boss2.attack2Positions[2]:
         drawCircle(elem[0], elem[1], 10, fill='gray', border='black')
-        dx, dy = elem[2], elem[3]
-        boss2.shootProjectilesOutwards(boss2.attack2Positions[2].index(elem), dx, dy)
+        dx = elem[5]
+        m = max(elem[3],elem[1])
+        s = min(elem[3],elem[1])
+        if elem[3] < elem[1] -10 and elem[4] == 0:
+            dy = (s-m)/30
+        else:
+            elem[4]=1
+            dy=(m-s)/30
+        boss2.shootProjectilesOutwards(boss2.attack2Positions[2].index(elem), dx, dy)    
     for elem in boss3.attack2Positions[2]:
         drawCircle(elem[0], elem[1], 10, fill='gray', border='black')
-        dx, dy = elem[2], elem[3]
+        dx = elem[5]
+        m = max(elem[3],elem[1])
+        s = min(elem[3],elem[1])
+        if elem[3] < elem[1] -10 and elem[4] == 0:
+            dy = (s-m)/30
+        else:
+            elem[4]=1
+            dy=(m-s)/30
         boss3.shootProjectilesOutwards(boss3.attack2Positions[2].index(elem), dx, dy)
 
 ##### LEVEL 3 STUFF
@@ -999,6 +1066,18 @@ def drawPlayer(app):
         drawRect(96, 721, player.health+8, 28, fill='gold', border='black')
         drawRect(100, 725, player.health, 20, fill='green')
         drawLabel(f'Player Health:{int(player.health)}', 180, 700, size=20, fill='white')
+    if app.level3Loaded and playerBumpedByPlatform(app):
+        if player.position[0] > 30:
+            player.move(app, -10, 0)
+        else:
+            player.removeHealth(10)
+        
+def playerBumpedByPlatform(app):
+    for platform in level3.platforms[3:]:
+        if (platform[0]-50<player.position[0]<platform[0]) and (platform[1]-50 < player.position[1] < platform[1]+50):
+            return True
+    return False
+
     
 
 
