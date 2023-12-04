@@ -89,7 +89,8 @@ def onAppStart(app):
 
     app.width, app.height = 1600, 800
     app.stepsPerSecond = 60
-    app.colors, app.platColors =[], []
+    app.colors, app.platColors = [], []
+    app.cycleColors=['red','orange','green','blue','purple','yellow','lightgray']
     app.setMaxShapeCount(10000)
     app.counter = -1
     app.gravity = 0.0001
@@ -148,7 +149,8 @@ class Boss():
         self.attack1Ready = True
         self.attack2Ready = False
         self.attack3Ready = False
-        self.attack2Positions = []
+        self.attack1Positions =[]
+        self.attack2Positions = [0,0,[]]
         self.attack3Positions = [800, 400, []]
         self.attack3EnragedPositions = []
         self.projectX, self.projectY = None, None
@@ -203,22 +205,23 @@ class Boss():
                     player.removeHealth(self.damage)
                     self.attack3Positions[2].pop(index)
     def shootProjectile(self, app, index, dx, dy):
-        self.attack2Positions[index][0] += dx
-        self.attack2Positions[index][1] += dy
-
-        for platform in currentlyLoadedLevel(app)[0]:
-            if rectanglesOverlap(*platform, self.attack2Positions[index][0], 
-                                 self.attack2Positions[index][1], 10, 10):
-                self.attack2Positions.pop(index)
-                return
-        if distance(self.attack2Positions[index][0], 
-                    self.attack2Positions[index][1], *player.position) < 30:
-            player.removeHealth(self.damage)
-            self.attack2Positions.pop(index)
-    def shootProjectilesOutwards(self, index, dx, dy):
         self.attack2Positions[2][index][0] += dx
         self.attack2Positions[2][index][1] += dy
-        for platform in level2.platforms:
+
+        for platform in currentlyLoadedLevel(app)[0]:
+            if rectanglesOverlap(*platform, self.attack2Positions[2][index][0], 
+                                 self.attack2Positions[2][index][1], 10, 10):
+                self.attack2Positions[2].pop(index)
+                return
+        if distance(self.attack2Positions[2][index][0], 
+                    self.attack2Positions[2][index][1], *player.position) < 30:
+            player.removeHealth(self.damage)
+            self.attack2Positions[2].pop(index)
+            return
+    def shootProjectilesOutwards(self, app, index, dx, dy):
+        self.attack2Positions[2][index][0] += dx
+        self.attack2Positions[2][index][1] += dy
+        for platform in currentlyLoadedLevel(app)[0]:
             if rectanglesOverlap(*platform, 
                 self.attack2Positions[2][index][0], self.attack2Positions[2][index][1], 10, 10):
                 self.attack2Positions[2].pop(index)
@@ -227,6 +230,17 @@ class Boss():
                 self.attack2Positions[2][index][1], *player.position) < 50:
             player.removeHealth(self.damage)
             self.attack2Positions[2].pop(index)
+            return
+    def randomBG(self, app, index):
+        if self.attack1Positions[index][2] < 20 or len(self.attack1Positions) > 20:
+            self.attack1Positions.pop(index)
+        point = [*self.attack1Positions[index][:2]]
+        leng = self.attack1Positions[index][2]
+        drawRect(point[0]-leng,point[1]-leng,leng,leng,border='black',
+                 opacity=5,fill=app.cycleColors[self.attack1Positions[index][3]])
+        self.attack1Positions[index][2]-=1
+        
+        
 
 class Weapon():
     def __init__(self, damage, name):
@@ -278,7 +292,8 @@ class Weapon():
                                            *self.projectilePositions[index][2:]]       
         for platform in currentlyLoadedLevel(app)[0]:
             if rectanglesOverlap(*platform, self.projectilePositions[index][0], 
-                            self.projectilePositions[index][1], 10, 10):
+                            self.projectilePositions[index][1], 10, 10) or (
+                            self.projectilePositions[index][1]  > 800):
                 self.projectilePositions.pop(index)
                 return 
         for boss in currentlyLoadedLevel(app)[1:]:
@@ -287,6 +302,7 @@ class Weapon():
                 self.projectilePositions.pop(index)
                 boss.takeDamage(self.damage)
                 return
+            
         
         
 class Armor():
@@ -380,10 +396,10 @@ def weaponShootingMechanics(app, bossList):
                 elem.takeDamage(weapon1.damage)
     if weapon2.firing:
         for elem in weapon2.projectilePositions:
+            print(elem[0],elem[1],'elem')
             drawCircle(elem[0], elem[1], 10, fill='gray')
             weapon2.parabolicMove(app, weapon2.projectilePositions.index(elem))
     if player.equippedWeapon == weapon3:
-        print(weapon3.projectilePositions)
         for elem in weapon3.projectilePositions:
             drawImage(app.typhoonAnimation[app.typhoonAnimationCounter], elem[0], elem[1], align='center', 
                       width=90, height = 70)
@@ -437,7 +453,7 @@ def updateLightningPositions(app, index):
             weapon4.projectilePositions.pop(index)
             return
     weapon4.projectilePositions[index] = list    
-
+ 
 
 ####### ALL APP FUNCTIONS
 ########
@@ -637,6 +653,7 @@ def redrawAll(app):
    
     if app.level3Loaded:
         drawLevel3(app)
+        level3Attack(app)
         weaponShootingMechanics(app, [boss4])
         drawBoss4(app)
 
@@ -681,6 +698,9 @@ def redrawAll(app):
 
 def onStep(app):
     if boss1.active:
+        if app.counter == -1:
+            boss1.attack2Positions = [800,400,[]]
+        
         if app.counter == 0:
             boss1.projectX = random.randint(70, app.width - 70)
             boss1.projectY = random.randint(70 , app.height - 70)
@@ -700,14 +720,16 @@ def onStep(app):
                 app.level1Completed = True
         if boss1.attack2Ready:
             if app.counter % 30 == 0:
-                boss1.attack2Positions.append(boss1.position + player.position + boss1.position)
+                dx = -8 if boss1.position[0] > player.position[0] else 8
+                boss1.attack2Positions[2].append([*boss1.position,*player.position,0,dx])
         if boss1.attack3Ready:
             if app.counter % 5 == 0:
-                boss1.attack2Positions.append(boss1.position + player.position + boss1.position)
+                dx = -8 if boss1.position[0] > player.position[0] else 8
+                boss1.attack2Positions[2].append([*boss1.position,*player.position,0,dx])
     if boss2.active or boss3.active:
         if app.counter == -1:
-            boss2.attack2Positions = [800, 400, []]
-            boss3.attack2Positions = [800, 400, []]
+            boss2.attack2Positions=[800,400,[]]
+            boss3.attack2Positions=[800,400,[]]
             boss2.position, boss3.position = [300, 100], [900, 100]
         if app.counter == 0 and boss2.attack1Ready:
             boss2.projectX, boss3.projectX = random.randint(100, 500), random.randint(900, 1400)
@@ -750,6 +772,7 @@ def onStep(app):
             addPlatform(app)
         if player.position[1] > 800 and app.counter %5==0:
             player.removeHealth(1)
+            
         
     
     if app.customLevel:
@@ -824,7 +847,7 @@ def drawPlatform(app):
     if app.level1Loaded:
         if boss1.attack1Ready:
             drawRect(0, 0, app.width, app.height, fill=gradient('blue', 'lightblue', 'white', start='bottom'))
-        elif boss1.attack2Ready:
+        elif boss1.attack2Ready or boss1.attack3Ready:
             drawRect(0, 0, app.width, app.height, fill=gradient('red', 'brown', 'black', start='bottom'))
         for platform in level1.platforms[:4]:
             drawRect(*platform, fill = None, border='black', borderWidth = 5)
@@ -863,7 +886,7 @@ def drawBoss1(app):
         elif boss1.attack1Ready and dx <0:
             drawImage(app.boss1AnimationMirror[1], *boss1.position, width=200, 
                       height=200, align='center', rotateAngle = angle)
-        elif boss1.attack2Ready:
+        elif boss1.attack2Ready or boss1.attack3Ready:
             if dx > 0:
                 drawImage(app.boss1Animation[app.boss1AnimationCounter], *boss1.position,
                            width=200, height=200, align='center', rotateAngle = angle)
@@ -877,12 +900,14 @@ def projectBossNextSpot(app, newX, newY):
 
 def boss1Attack(app):
     if boss1.health > 300:
+        boss1.attack2Ready = False
         boss1Attack1(app)
     elif boss1.health > 100:
         boss1.attack1Ready = False
         boss1.attack2Ready = True
         boss1Attack2(app)
     else:
+        boss1.attack2Ready = False
         boss1.attack3Ready = True
         boss1Attack3(app)
 
@@ -895,14 +920,18 @@ def boss1Attack1(app):
         player.removeHealth(0.025)    
 
 def boss1Attack2(app):
-    for elem in boss1.attack2Positions:
-        dx, dy = (player.position[0] - boss1.position[0])/70, (player.position[1] - boss1.position[1])/70
-        if dx != 0:
-            angle = 90 + 50 * math.atan(dy/dx) if dx > 0 else 270 + 50 * math.atan(dy/dx)
-            drawImage(app.boss1Tooth, elem[0], elem[1], width = 50, height = 50, rotateAngle = angle, align='center')
-            dx = (elem[2] - elem[4]) / 70
-            dy = (elem[3] - elem[5]) / 70
-            boss1.shootProjectile(app, boss1.attack2Positions.index(elem), dx, dy)
+    print(boss1.attack2Positions)
+    for elem in boss1.attack2Positions[2]:
+        drawCircle(elem[0], elem[1],10,fill='gray',border='black')
+        dx = elem[5]
+        m = max(elem[3],elem[1])
+        s = min(elem[3],elem[1])
+        if elem[3] < elem[1] -10 and elem[4] == 0:
+            dy = (s-m)/30
+        else:
+            elem[4]=1
+            dy=(m-s)/30
+        boss1.shootProjectile(app, boss1.attack2Positions[2].index(elem), dx, dy) 
 
 def boss1Attack3(app):
     boss1Attack2(app)
@@ -998,7 +1027,7 @@ def level2Attack2(app):
         else:
             elem[4]=1
             dy=(m-s)/30
-        boss2.shootProjectilesOutwards(boss2.attack2Positions[2].index(elem), dx, dy)    
+        boss2.shootProjectilesOutwards(app, boss2.attack2Positions[2].index(elem), dx, dy)    
     for elem in boss3.attack2Positions[2]:
         drawCircle(elem[0], elem[1], 10, fill='gray', border='black')
         dx = elem[5]
@@ -1009,17 +1038,7 @@ def level2Attack2(app):
         else:
             elem[4]=1
             dy=(m-s)/30
-        boss3.shootProjectilesOutwards(boss3.attack2Positions[2].index(elem), dx, dy)
-
-##### LEVEL 3 STUFF
-
-def drawLevel3(app):
-    drawPlatform(app)
-    drawBoss4(app)
-    drawPlayer(app)
-
-def drawBoss4(app):
-    pass
+        boss3.shootProjectilesOutwards(app, boss3.attack2Positions[2].index(elem), dx, dy)
 
 def drawCustomLevel(app):
     if len(app.colors) >=2:
@@ -1037,6 +1056,46 @@ def drawCustomLevel(app):
             drawRect(*platform, fill='orange')
     drawPlayer(app)
 
+##### LEVEL 3 STUFF
+
+def drawLevel3(app):
+    drawPlatform(app)
+    background(app)
+    drawBoss4(app)
+    drawPlayer(app)
+
+def drawBoss4(app):
+    boss4.position = [1600, 800]
+    drawRect(1400, 0, 200, 800, fill='pink')
+    if boss4.health > 0:
+        drawRect(30, 60, 1004, 15, fill = None, borderWidth = 2, border = 'black')
+        drawRect(32, 62, boss4.health//3, 11, fill = 'red')
+        drawLabel('Boss 4 Health', 1060, 65, size =20, align='left')
+
+def level3Attack(app):
+    if boss4.health > 2000:
+        boss4.attack1Ready=True
+        level3Attack1(app)
+    elif 2000 > boss4.health > 1000:
+        level3Attack2(app)
+    else:
+        level3Attack3(app)
+        
+def background(app):
+    colour = random.randint(0,6)
+    center = [random.randint(0, 1600), random.randint(0, 800),300,colour] 
+    boss4.attack1Positions.append(center)
+    for elem in boss4.attack1Positions:
+        boss4.randomBG(app, boss4.attack1Positions.index(elem))
+
+def level3Attack1(app):
+    pass
+
+def level3Attack2(app):
+    pass
+
+def level3Attack3(app):
+    pass
 
 
 ##### MISC DRAWINGS & RESETS
