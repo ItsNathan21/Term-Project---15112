@@ -4,6 +4,14 @@ import math
 from PIL import Image
 # from numpy import *
 
+
+# CITATIONS
+# All sprites were drawn by me, however the character design for the player was 
+# heavily inspired by the character sprite from the game Terraria developed by ReLogic
+# The name and idea of the weapon "razorblade typhoon" also comes from Terraria developed by ReLogic
+
+
+
 ####### INITIALIZING VALUES AND BORDERS
 #######
 leftBorder = [0, 0, 20, 800]
@@ -24,8 +32,6 @@ def onAppStart(app):
     app.weapon2BulletImage = openImage("sprites/bullet1.png")
     app.weapon2BulletImageFlip = app.weapon2BulletImage.transpose(Image.FLIP_LEFT_RIGHT)
     app.boss1Tooth = openImage("sprites/boss1Attack1.png")
-    app.deathScreenImage = openImage("sprites/gravestones.jpg")
-    app.victoryScreenImage = openImage("sprites/victory.jpg")
     app.boss2Phase1 = openImage("sprites/boss2.png")
     app.boss3Phase1 = openImage("sprites/boss3.png")
     app.staff = openImage("sprites/staff.png")
@@ -81,8 +87,6 @@ def onAppStart(app):
     app.weapon2BulletImageFlip = CMUImage(app.weapon2BulletImageFlip)
     app.boss1Tooth = CMUImage(app.boss1Tooth)
     app.typhoonBook = CMUImage(app.typhoonBook)
-    app.deathScreenImage = CMUImage(app.deathScreenImage)
-    app.victoryScreenImage = CMUImage(app.victoryScreenImage)
     app.boss2Phase1 = CMUImage(app.boss2Phase1)
     app.boss3Phase1 = CMUImage(app.boss3Phase1)
     app.staff = CMUImage(app.staff)
@@ -116,7 +120,7 @@ class Player():
         self.gravity = 10
         self.jumping = False
         self.weapons = [weapon1, weapon2, weapon3, weapon4]
-        self.equippedWeapon = weapon1
+        self.equippedWeapon = weapon5
         self.equippedArmor = None
         self.firingWeapon1 = False
         self.firingWeapon2 = False
@@ -149,7 +153,7 @@ class Boss():
         self.attack1Ready = True
         self.attack2Ready = False
         self.attack3Ready = False
-        self.attack1Positions =[]
+        self.attack1Positions = []
         self.attack2Positions = [0,0,[]]
         self.attack3Positions = [800, 400, []]
         self.attack3EnragedPositions = []
@@ -164,147 +168,252 @@ class Boss():
         self.attack1Ready = True
         self.attack2Ready = False
         self.attack3Ready = False
-        self.attack2Positions = []
+        self.attack2Positions = [0,0,[]]
         self.attack3Positions = [800, 400, []]
         self.attack3EnragedPositions = []
         self.projectX, self.projectY = None, None
     def teleport(self, x, y):
         self.position = [x, y]
+
     def touching(self):
+        # Assuming player is a global variable or passed as an argument
         return distance(*player.position, *self.position) < 50
+
     def octagonalPositions(self, x, y):
-        return [[x+25,y,x+300,y-20,0,8],[x-25,y,x-300,y-20,0,-8],[x,y+25,x,y-300,0,0],
-                [x,y-25,x,y+300,0,0],[x+25,y+25,x+300,y-50,0,8],
-                [x+25,y-25,x+300,y,0,8],[x-25,y-50,x-300,y,0,-8],[x-25,y+25,x+300,y+20,0,-8]]
+        return [
+            [x + 25, y, x + 300, y - 20, 0, 8],
+            [x - 25, y, x - 300, y - 20, 0, -8],
+            [x, y + 25, x, y - 300, 0, 0],
+            [x, y - 25, x, y + 300, 0, 0],
+            [x + 25, y + 25, x + 300, y - 50, 0, 8],
+            [x + 25, y - 25, x + 300, y, 0, 8],
+            [x - 25, y - 50, x - 300, y, 0, -8],
+            [x - 25, y + 25, x + 300, y + 20, 0, -8]
+        ]
+
     def shotgunPositions(self, x, y):
-        return [[x+25,y],[x-25,y],[x,y+25],[x,y-25],[x+25,y+25],
-                [x+25,y-25],[x-25,y-25],[x-25,y+25]]
+        return [
+            [x + 25, y], [x - 25, y], [x, y + 25], [x, y - 25],
+            [x + 25, y + 25], [x + 25, y - 25], [x - 25, y - 25], [x - 25, y + 25]
+        ]
+
     def bossMove(self, dx, dy):
         self.position = [self.position[0] + dx, self.position[1] + dy]
+
     def attack3(self):
-        dx, dy = ((self.attack3Positions[0] - self.position[0])/70, 
-                (self.attack3Positions[1] - self.position[1])/70)
-        if dx!=0:
+        dx, dy = (
+            (self.attack3Positions[0] - self.position[0]) / 70,
+            (self.attack3Positions[1] - self.position[1]) / 70
+        )
+
+        if dx != 0:
             dx, dy = angleMaker(3, dx, dy)
             self.bossMove(dx, dy)
+
         if self.attack3EnragedPositions:
-            dx2, dy2 = ((player.position[0] - self.position[0])/70,
-                        (player.position[1] - self.position[1])/70)
+            dx2, dy2 = (
+                (player.position[0] - self.position[0]) / 70,
+                (player.position[1] - self.position[1]) / 70
+            )
+
             if dx2 != 0:
-                dx2, dy2 = angleMaker(7, dx2, dy2)       
+                dx2, dy2 = angleMaker(7, dx2, dy2)
+
             for elem in self.attack3Positions[2]:
-                drawCircle(elem[0], elem[1], 10, fill = 'gray', border='black')
+                drawCircle(elem[0], elem[1], 10, fill='gray', border='black')
                 index = self.attack3Positions[2].index(elem)
                 elem[0] += dx2
                 elem[1] += dy2
+
                 for platform in level2.platforms:
                     if rectanglesOverlap(*platform, elem[0], elem[1], 10, 10):
                         self.attack3Positions[2].pop(index)
                         return
+
                 if distance(elem[0], elem[1], *player.position) < 50:
                     player.removeHealth(self.damage)
                     self.attack3Positions[2].pop(index)
+
     def shootProjectile(self, app, index, dx, dy):
         self.attack2Positions[2][index][0] += dx
         self.attack2Positions[2][index][1] += dy
 
         for platform in currentlyLoadedLevel(app)[0]:
-            if rectanglesOverlap(*platform, self.attack2Positions[2][index][0], 
-                                 self.attack2Positions[2][index][1], 10, 10):
+            if rectanglesOverlap(
+                *platform, self.attack2Positions[2][index][0],
+                self.attack2Positions[2][index][1], 10, 10
+            ):
                 self.attack2Positions[2].pop(index)
                 return
-        if distance(self.attack2Positions[2][index][0], 
-                    self.attack2Positions[2][index][1], *player.position) < 30:
+
+        if distance(
+            self.attack2Positions[2][index][0],
+            self.attack2Positions[2][index][1], *player.position
+        ) < 30:
             player.removeHealth(self.damage)
             self.attack2Positions[2].pop(index)
             return
+
+        if app.level3Loaded and self.attack2Positions[2][index][1] > 800:
+            self.attack2Positions[2].pop(index)
+            return
+
     def shootProjectilesOutwards(self, app, index, dx, dy):
         self.attack2Positions[2][index][0] += dx
         self.attack2Positions[2][index][1] += dy
+
         for platform in currentlyLoadedLevel(app)[0]:
-            if rectanglesOverlap(*platform, 
-                self.attack2Positions[2][index][0], self.attack2Positions[2][index][1], 10, 10):
+            if rectanglesOverlap(
+                *platform, self.attack2Positions[2][index][0],
+                self.attack2Positions[2][index][1], 10, 10
+            ):
                 self.attack2Positions[2].pop(index)
                 return
-        if distance(self.attack2Positions[2][index][0], 
-                self.attack2Positions[2][index][1], *player.position) < 50:
+
+        if distance(
+            self.attack2Positions[2][index][0],
+            self.attack2Positions[2][index][1], *player.position
+        ) < 50:
             player.removeHealth(self.damage)
             self.attack2Positions[2].pop(index)
             return
+
     def randomBG(self, app, index):
         if self.attack1Positions[index][2] < 20 or len(self.attack1Positions) > 20:
             self.attack1Positions.pop(index)
+
         point = [*self.attack1Positions[index][:2]]
         leng = self.attack1Positions[index][2]
-        drawRect(point[0]-leng,point[1]-leng,leng,leng,border='black',
-                 opacity=5,fill=app.cycleColors[self.attack1Positions[index][3]])
-        self.attack1Positions[index][2]-=1
-        
-        
 
-class Weapon():
+        drawRect(
+            point[0] - leng, point[1] - leng, leng, leng,
+            border='black', opacity=5, fill=app.cycleColors[self.attack1Positions[index][3]]
+        )
+
+        self.attack1Positions[index][2] -= 1
+
+    def sweep(self, point1, point2):
+        if distance(*point1, *point2) > 20:
+            drawLine(*self.position, *point2)
+        else:
+            self.projectX, self.projectY = [], []
+            return
+
+        for point in [point1, point2]:
+            drawCircle(*point, 10, fill='red')
+
+        dx, dy = (point1[0] - point2[0]) / 40, (point1[1] - point2[1]) / 40
+        self.projectY = [point2[0] + dx, point2[1] + dy]
+
+        for i in range(40):
+            dx, dy = (
+                (point2[0] - self.position[0]) / 40,
+                (point2[1] - self.position[1]) / 40
+            )
+
+            left, top = dx * i + self.position[0], dy * i + self.position[1]
+
+            if rectanglesOverlap(
+                left, top, 10, 10, *player.position, 50, 50
+            ):
+                player.removeHealth(1)
+
+    def squareAttack(self,app):
+        drawRect(self.attack3Positions[0],self.attack3Positions[1],
+                 self.attack3Positions[2],self.attack3Positions[3],fill='lightblue')
+        dx = -(self.attack3Positions[0]-self.attack3Positions[4])/40
+        dy = -(self.attack3Positions[1]-self.attack3Positions[5])/40
+        if abs(dx) < 0.05 or abs(dy) < 0.05:
+            self.attack3Positions = []
+            return
+        self.attack3Positions[0] += dx
+        self.attack3Positions[1] += dy
+        if rectanglesOverlap(*self.attack3Positions[:4],*player.position,50,50):
+            self.attack3Positions = []
+            player.removeHealth(boss4.damage)
+            return
+        
+class Weapon:
     def __init__(self, damage, name):
         self.damage = damage
         self.name = name
         self.firing = False
         self.mousePosition = []
         self.projectilePositions = []
-    def __hash__(self):
-        pass
+
     def __repr__(self):
         return f'{self.name}'
+
     def projectileMove(self, app, index, dx, dy):
         self.projectilePositions[index][0] += dx
-        self.projectilePositions[index][1] += 2
+        self.projectilePositions[index][1] += dy
+
         for platform in currentlyLoadedLevel(app)[0]:
-            if rectanglesOverlap(*platform, self.projectilePositions[index][0], 
-                            self.projectilePositions[index][1], 10, 10):
+            if rectanglesOverlap(
+                *platform, self.projectilePositions[index][0],
+                self.projectilePositions[index][1], 10, 10
+            ):
                 self.projectilePositions.pop(index)
-                return 
+                return
+
         for boss in currentlyLoadedLevel(app)[1:]:
-            if distance(self.projectilePositions[index][0], 
-                        self.projectilePositions[index][1], *boss.position) < boss.radius:
+            if distance(
+                self.projectilePositions[index][0],
+                self.projectilePositions[index][1], *boss.position
+            ) < boss.radius:
                 self.projectilePositions.pop(index)
                 boss.takeDamage(self.damage)
                 return
-        if app.level3Loaded:
-            if self.projectilePositions[index][1] > 800:
-                self.projectilePositions.pop(index)
-                return
+
+        if app.level3Loaded and self.projectilePositions[index][1] > 800:
+            self.projectilePositions.pop(index)
+            return
+
     def reset(self):
         self.firing = False
         self.mousePosition = []
         self.projectilePositions = []
+
     def parabolicMove(self, app, index):
         dx = self.projectilePositions[index][5]
-        if (self.projectilePositions[index][3] < (self.projectilePositions[index][1] - 20) and 
-            self.projectilePositions[index][4] == 0):
-            m = max(self.projectilePositions[index][3],self.projectilePositions[index][1])
-            s = min(self.projectilePositions[index][3],self.projectilePositions[index][1])
-            dy = (s-m)/30
+
+        if (
+            self.projectilePositions[index][3] < (self.projectilePositions[index][1] - 20)
+            and self.projectilePositions[index][4] == 0
+        ):
+            m = max(self.projectilePositions[index][3], self.projectilePositions[index][1])
+            s = min(self.projectilePositions[index][3], self.projectilePositions[index][1])
+            dy = (s - m) / 30
         else:
             self.projectilePositions[index][4] = 1
-            m = max(self.projectilePositions[index][3],self.projectilePositions[index][1])
-            s = min(self.projectilePositions[index][3],self.projectilePositions[index][1])
-            dy = (m-s)/30
-        self.projectilePositions[index] = [self.projectilePositions[index][0] + dx, 
-                                           self.projectilePositions[index][1] + dy,
-                                           *self.projectilePositions[index][2:]]       
+            m = max(self.projectilePositions[index][3], self.projectilePositions[index][1])
+            s = min(self.projectilePositions[index][3], self.projectilePositions[index][1])
+            dy = (m - s) / 30
+
+        self.projectilePositions[index] = [
+            self.projectilePositions[index][0] + dx,
+            self.projectilePositions[index][1] + dy,
+            *self.projectilePositions[index][2:]
+        ]
+
         for platform in currentlyLoadedLevel(app)[0]:
-            if rectanglesOverlap(*platform, self.projectilePositions[index][0], 
-                            self.projectilePositions[index][1], 10, 10) or (
-                            self.projectilePositions[index][1]  > 800):
+            if rectanglesOverlap(
+                *platform, self.projectilePositions[index][0],
+                self.projectilePositions[index][1], 10, 10
+            ) or (self.projectilePositions[index][1] > 800):
                 self.projectilePositions.pop(index)
-                return 
+                return
+
         for boss in currentlyLoadedLevel(app)[1:]:
-            if distance(self.projectilePositions[index][0], 
-                        self.projectilePositions[index][1], *boss.position) < boss.radius:
+            if distance(
+                self.projectilePositions[index][0],
+                self.projectilePositions[index][1], *boss.position
+            ) < boss.radius:
                 self.projectilePositions.pop(index)
                 boss.takeDamage(self.damage)
-                return
-            
+                return       
         
-        
+
 class Armor():
     def __init__(self, shields):
         self.shield = shields
@@ -340,7 +449,7 @@ boss2, boss3 = Boss(1000, 20, 50), Boss(1000, 20, 50)
 boss4 = Boss(3000, 30, 300)
 
 bosses = [boss1, boss2, boss3, boss4]
-weapons = [weapon1, weapon2, weapon3, weapon4]
+weapons = [weapon1, weapon2, weapon3, weapon4,weapon5]
 
 lightArmor = Armor(300)
 mediumArmor = Armor(500)
@@ -358,6 +467,7 @@ def currentlyLoadedLevel(app):
     elif app.level3Loaded:
         return [level3.platforms, boss4]
     return [customLevel.platforms, *customLevel.bosses]
+
 def anyLevelLoaded(app):
     return app.level1Loaded or app.level2Loaded or app.level3Loaded or app.customLevel
 
@@ -380,7 +490,6 @@ def lineOfSightCheck(app, object1X, object1Y, object2X, object2Y, amount):
     dy = (object2Y - object1Y) / amount
     rect1 = [object1X + dx, object1Y + dy, 10, 10]
     for i in range(amount):
-        drawRect(*rect1, fill = None)
         for platform in currentlyLoadedLevel(app)[0]:
             if rectanglesOverlap(*platform, *rect1):
                     return False
@@ -392,11 +501,10 @@ def weaponShootingMechanics(app, bossList):
         drawPolygon(*player.position, weapon1.mousePosition[0]-5, weapon1.mousePosition[1],
                     weapon1.mousePosition[0]+5,weapon1.mousePosition[1])
         for elem in bossList:
-            if distance(*weapon1.mousePosition, *elem.position) < 100:
+            if distance(*weapon1.mousePosition, *elem.position) < elem.radius:
                 elem.takeDamage(weapon1.damage)
     if weapon2.firing:
         for elem in weapon2.projectilePositions:
-            print(elem[0],elem[1],'elem')
             drawCircle(elem[0], elem[1], 10, fill='gray')
             weapon2.parabolicMove(app, weapon2.projectilePositions.index(elem))
     if player.equippedWeapon == weapon3:
@@ -431,7 +539,11 @@ def weaponShootingMechanics(app, bossList):
                 drawPolygon(firstPoint[0]-5, firstPoint[1], firstPoint[0]+5, firstPoint[1], 
                             *secondPoint, fill='white', border='blue')
             updateLightningPositions(app, weapon4.projectilePositions.index(list))
-
+    
+    if player.equippedWeapon == weapon5:
+        for elem in weapon5.projectilePositions:
+            drawCircle(elem[0],elem[1],10,fill='gray')
+            weapon5.parabolicMove(app,weapon5.projectilePositions.index(elem))
 
 def updateLightningPositions(app, index):
     list = weapon4.projectilePositions[index]
@@ -452,12 +564,22 @@ def updateLightningPositions(app, index):
             boss.takeDamage(weapon4.damage)
             weapon4.projectilePositions.pop(index)
             return
-    weapon4.projectilePositions[index] = list    
- 
+    weapon4.projectilePositions[index] = list
+
+def scroll(app):
+    for i in range(3,len(level3.platforms)):
+        level3.platforms[i][0]-=10
+    for platform in level3.platforms:
+        if platform[0] + platform[2] <= 0:
+            level3.platforms.pop(level3.platforms.index(platform))
+        
+def addPlatform(app):
+    width=random.randint(200,300)
+    top=random.randint(100,700)
+    level3.platforms += [[1600,top,width,20]]
 
 ####### ALL APP FUNCTIONS
 ########
-
 def onMousePress(app, mouseX, mouseY):
     if app.homeScreen:
         for i in range(3):
@@ -562,8 +684,10 @@ def onMousePress(app, mouseX, mouseY):
             player.reset(500)
 
     if app.weaponSelectionScreen:
-        for i in range(4):
-            if rectanglesOverlap(mouseX, mouseY, 5,5, 350, 50+200*i, 300, 100):
+        
+
+        for i in range(5):
+            if rectanglesOverlap(mouseX, mouseY, 5,5, 350, 50+150*i, 300, 100):
                 player.equippedWeapon = weapons[i]
         if rectanglesOverlap(mouseX, mouseY, 5, 5, 50, 200, 200, 200):
             app.homeScreen = True
@@ -600,12 +724,6 @@ def onMousePress(app, mouseX, mouseY):
             endPoint = [mouseX, mouseY]
             list = [startingPoint, firstPoint, endPoint]
             weapon4.projectilePositions.append(list)
-        
-    if player.equippedWeapon == weapon5:
-        centerPoint = [[mouseX, mouseY]]
-        starterPoints = [[mouseX +50, mouseY],[mouseX-50, mouseY],[mouseX,mouseY+50],
-                         [mouseX,mouseY-50]]
-        weapon5.projectilePositions = centerPoint + starterPoints
 
 
 def onMouseMove(app, mouseX, mouseY):
@@ -620,11 +738,22 @@ def onMouseDrag(app, mouseX, mouseY):
     if anyLevelLoaded(app) and player.equippedWeapon == weapon1:
         weapon1.mousePosition = [mouseX, mouseY]
         weapon1.firing = True
+    if anyLevelLoaded(app) and player.equippedWeapon == weapon5:
+        weapon5.firing = True
+        weapon5.mousePosition=[mouseX,mouseY]
+        
 
 def onMouseRelease(app, mouseX, mouseY):
     if anyLevelLoaded(app):
         if weapon1.firing:
             weapon1.firing = False
+        if weapon5.firing:
+            for i in range(3):
+                start=[player.position[0]+3*i,player.position[1]+3*i]
+                end=[player.position[0]+i*(mouseX-player.position[0]),player.position[1]+i*(player.position[1]-mouseY)]
+                weapon5.projectilePositions.append([*start,*end,0,(player.position[0]-mouseX)/70])
+                weapon5.firing=False
+                weapon5.mousePosition=[]
 
 def redrawAll(app):
     if app.homeScreen:
@@ -689,7 +818,10 @@ def redrawAll(app):
         drawLevelEditor(app)
         if customLevel.makingPlatform:
             drawRect(*customLevel.platformOutlinePosition, fill = None, border='blue', dashes=True)
-
+    
+    if anyLevelLoaded(app) and weapon5.firing:
+        x,y=player.position[0]-weapon5.mousePosition[0],player.position[1]-weapon5.mousePosition[1]
+        drawLine(*weapon5.mousePosition,player.position[0]+x,player.position[1]+y,dashes=True)
 
     if app.deathScreen:
         drawDeathScreen(app)
@@ -697,128 +829,164 @@ def redrawAll(app):
         drawVictoryScreen(app)
 
 def onStep(app):
+    handleBoss1(app)
+    handleBoss2And3(app)
+    handleBoss4(app)
+    handleLevel3(app)
+    handleCustomLevel(app)
+    if anyLevelLoaded(app):
+        handlePlayerMovement(app)
+        updateCountersAndAnimations(app)
+
+def handleBoss1(app):
     if boss1.active:
-        if app.counter == -1:
-            boss1.attack2Positions = [800,400,[]]
-        
         if app.counter == 0:
-            boss1.projectX = random.randint(70, app.width - 70)
-            boss1.projectY = random.randint(70 , app.height - 70)
+            initializeBoss1()
         if app.counter == 180:
             boss1.attack1Ready = not boss1.attack1Ready
-        if distance(*player.position, *boss1.position) < 100:
-            player.removeHealth(1)
-        if app.level1Loaded:
-            if player.health <= 0:
-                app.level1Loaded = False
-                boss1.active = False
-                app.deathScreen = True
+        handlePlayerCollisionWithBoss(app, boss1)
+
+        if boss1.attack2Ready:
+            handleBossProjectile(app, boss1)
+
+        if boss1.attack3Ready:
+            handleBossProjectile(app, boss1)
+        if app.level1Loaded:  
             if boss1.health <= 0:
                 app.level1Loaded = False
                 app.victoryScreen = True
-                boss1.active = False
-                app.level1Completed = True
-        if boss1.attack2Ready:
-            if app.counter % 30 == 0:
-                dx = -8 if boss1.position[0] > player.position[0] else 8
-                boss1.attack2Positions[2].append([*boss1.position,*player.position,0,dx])
-        if boss1.attack3Ready:
-            if app.counter % 5 == 0:
-                dx = -8 if boss1.position[0] > player.position[0] else 8
-                boss1.attack2Positions[2].append([*boss1.position,*player.position,0,dx])
+            
+            if player.health <= 0:
+                app.level1Loaded = False
+                app.deathScreen = True
+
+def initializeBoss1():
+    boss1.projectX = random.randint(400, 1350)
+    boss1.projectY = random.randint(50, 650)
+
+def handleBoss2And3(app):
     if boss2.active or boss3.active:
-        if app.counter == -1:
-            boss2.attack2Positions=[800,400,[]]
-            boss3.attack2Positions=[800,400,[]]
-            boss2.position, boss3.position = [300, 100], [900, 100]
-        if app.counter == 0 and boss2.attack1Ready:
-            boss2.projectX, boss3.projectX = random.randint(100, 500), random.randint(900, 1400)
-        if app.counter == 60 and boss2.attack1Ready:
-            boss2.position = [boss2.projectX, 100]
-            boss3.position = [boss3.projectX, 100]
+        initializeBoss2And3(app)
+
         if boss2.attack2Ready:
-            boss2.attack2Positions[:2] = [player.position[0] + 100, player.position[1] + 100]
-            boss3.attack2Positions[:2] = [player.position[0]- 100, player.position[1]- 100]
-        if boss2.attack2Ready and app.counter % 60 == 0:
-            x,y = boss2.position[0],boss2.position[1]
-            boss2.attack2Positions[2] += boss2.octagonalPositions(x, y)
-            x1,y1 = boss3.position[0],boss3.position[1]
-            boss3.attack2Positions[2] += boss3.octagonalPositions(x1, y1)
+            handleBoss2And3Attack2(app, boss2)
+
+        if boss3.attack2Ready:
+            handleBoss2And3Attack2(app, boss3)
+
         if boss2.attack3Ready:
-            boss2.attack3Positions[:2] = [player.position[0], player.position[1]]
+            handleBoss2And3Attack3(app, boss2)
+
         if boss3.attack3Ready:
-            boss3.attack3Positions[:2] = [player.position[0], player.position[1]]
-        if boss2.attack3Ready and app.counter % 60 == 0:
-            boss2.attack3EnragedPositions = [*player.position, *boss2.position]
-            x,y = boss2.position[0],boss2.position[1]
-            boss2.attack3Positions[2] += boss2.shotgunPositions(x, y)
-        if boss3.attack3Ready and app.counter % 60 == 0:
-            boss3.attack3EnragedPositions = [*player.position, *boss3.position]
-            x,y = boss3.position[0],boss3.position[1]
-            boss3.attack3Positions[2] += boss2.shotgunPositions(x, y)
+            handleBoss2And3Attack3(app, boss3)
+        
         if app.level2Loaded:
+            if boss2.health <= 0 and boss3.health <= 0:
+                app.level2Loaded = False
+                app.victoryScreen = True
+            
             if player.health <= 0:
                 app.level2Loaded = False
                 app.deathScreen = True
-                boss2.active = False
-            if boss2.health <=0 and boss3.health <= 0:
-                app.level2Loaded = False
-                app.victoryScreen = True
-                boss2.active = False
-                
+            
+            
+def initializeBoss2And3(app):
+    if app.counter == -1 and boss2.attack1Ready:
+        boss2.projectX, boss3.projectX = random.randint(100, 500), random.randint(900, 1400)
+    if app.counter == 60 and boss2.attack1Ready:
+        boss2.position = [boss2.projectX, 100]
+        boss3.position = [boss3.projectX, 100]
+
+def handleBoss2And3Attack2(app, boss):
+    boss.attack2Positions[:2] = [player.position[0] + 100, player.position[1] + 100]
+    x, y = boss.position[0], boss.position[1]
+    if app.counter % 30 == 0:
+        boss.attack2Positions[2] += boss.octagonalPositions(x, y)
+
+def handleBoss2And3Attack3(app, boss):
+    boss.attack3Positions[:2] = [player.position[0], player.position[1]]
+    x, y = boss.position[0], boss.position[1]
+    boss.attack3EnragedPositions = [*player.position, *boss.position]
+    if app.counter % 10 == 0:
+        boss.attack3Positions[2] += boss.shotgunPositions(x, y)
+
+def handleBoss4(app):
+    if boss4.active and app.level3Loaded:
+        if app.counter == -1:
+            boss4.attack3Positions = []
+        
+        if boss4.health <= 0:
+            app.level3Loaded = False
+            app.victoryScreen = True
+        
+        if player.health <= 0:
+            app.level3Loaded = False
+            app.deathScreen = True
+        
+def handleLevel3(app):
     if app.level3Loaded:
         scroll(app)
-        if app.counter % 60 == 0 and app.counter != 0:
-            addPlatform(app)
-        if player.position[1] > 800 and app.counter %5==0:
-            player.removeHealth(1)
-            
-        
+        handlePlatformGenerationAndHealthLoss(app)
     
+def handlePlatformGenerationAndHealthLoss(app):
+    if app.counter % 60 == 0 and app.counter != 0:
+        addPlatform(app)
+    if player.position[1] > 800 and app.counter % 5 == 0:
+        player.removeHealth(1)
+
+def handleCustomLevel(app):
     if app.customLevel:
-        if player.health <= 0:
-            app.customLevel = False
-            app.deathScreen = True
-        count = 0
-        for boss in customLevel.bosses:
-            if boss.health > 0:
-                count += 1
-            else:
-                boss.active = False
-        if count == 0:
-            app.customLevel = False
-            app.victoryScreen = True
+        handleCustomLevelCompletion(app)
+        handleBossHealth(app)
+
+def handleCustomLevelCompletion(app):
+    if player.health <= 0:
+        app.customLevel = False
+        app.deathScreen = True
+    count = 0
+    for boss in customLevel.bosses:
+        if boss.health > 0:
+            count += 1
+    if count == 0:
+        app.customLevel = False
+        app.victoryScreen = True
+    
+def handleBossHealth(app):
+    for boss in customLevel.bosses:
+        if boss.health <= 0:
+            boss.active = False
+
+def handlePlayerMovement(app):
     if player.jumping:
         player.move(app, 0, -19)
-    if anyLevelLoaded(app):
-        if app.counter % 2 == 0 and player.equippedWeapon == weapon3:
-            app.typhoonAnimationCounter = (app.typhoonAnimationCounter + 1) % 5
-        if app.counter % 10 == 0 and boss1.active:
-            app.boss1AnimationCounter = (app.boss1AnimationCounter +1) % 2
-        if (boss2.attack2Ready or boss2.attack3Ready or boss3.attack3Ready) and app.counter % 5 == 0:
-            app.boss2AnimationCounter = (app.boss2AnimationCounter + 1) % 4
-            app.boss3AnimationCounter = (app.boss3AnimationCounter + 1) % 4
-        if player.jumping and app.counter % 7 ==0 :
-            app.playerAnimationCounter = (app.playerAnimationCounter + 1) % 3
-        player.move(app, 0, player.gravity)
-        app.counter += 1
-        if app.counter == 180:
-            app.counter = 0
 
-def scroll(app):
-    for i in range(3,len(level3.platforms)):
-        level3.platforms[i][0]-=10
-    for platform in level3.platforms:
-        if platform[0] + platform[2] <= 0:
-            level3.platforms.pop(level3.platforms.index(platform))
-        
-def addPlatform(app):
-    width=random.randint(200,300)
-    top=random.randint(100,700)
-    level3.platforms += [[1600,top,width,20]]
+def updateCountersAndAnimations(app):
+    updateWeaponAndBossAnimations(app)
+    app.counter += 1
+    if app.counter == 180:
+        app.counter = 0
+    player.move(app, 0, player.gravity)
 
-def onKeyPress(app, key):
-    pass
+def updateWeaponAndBossAnimations(app):
+    if app.counter % 2 == 0 and player.equippedWeapon == weapon3:
+        app.typhoonAnimationCounter = (app.typhoonAnimationCounter + 1) % 5
+    if app.counter % 10 == 0 and boss1.active:
+        app.boss1AnimationCounter = (app.boss1AnimationCounter + 1) % 2
+    if (boss2.attack2Ready or boss2.attack3Ready or boss3.attack3Ready) and app.counter % 5 == 0:
+        app.boss2AnimationCounter = (app.boss2AnimationCounter + 1) % 4
+        app.boss3AnimationCounter = (app.boss3AnimationCounter + 1) % 4
+    if player.jumping and app.counter % 7 == 0:
+        app.playerAnimationCounter = (app.playerAnimationCounter + 1) % 3
+
+def handleBossProjectile(app, boss):
+    if app.counter % 30 == 0:
+        dx = -8 if boss.position[0] > player.position[0] else 8
+        boss.attack2Positions[2].append([*boss.position, *player.position, 0, dx])
+
+def handlePlayerCollisionWithBoss(app, boss):
+    if distance(*player.position, *boss.position) < 100:
+        player.removeHealth(1)
+
 
 def onKeyRelease(app, key):
     if key == 'w':
@@ -845,58 +1013,59 @@ def drawLevel1(app):
 
 def drawPlatform(app):
     if app.level1Loaded:
-        if boss1.attack1Ready:
-            drawRect(0, 0, app.width, app.height, fill=gradient('blue', 'lightblue', 'white', start='bottom'))
-        elif boss1.attack2Ready or boss1.attack3Ready:
-            drawRect(0, 0, app.width, app.height, fill=gradient('red', 'brown', 'black', start='bottom'))
-        for platform in level1.platforms[:4]:
-            drawRect(*platform, fill = None, border='black', borderWidth = 5)
-            drawRect(platform[0]+2.5, platform[1]+2.5, platform[2]-5, platform[3]-5, fill='gray')
-        for platform in level1.platforms[4:]:
-            drawRect(*platform, fill = None, border='black', borderWidth = 5)
-            drawRect(platform[0]+2.5, platform[1]+2.5, platform[2]-5, platform[3]-5, fill='gray')
-            drawLine(platform[0]+2, platform[1]+2, platform[0] + platform[2]/2, platform[1] + platform[3]-2)
-            drawLine(platform[0] + platform[2]/2, platform[1] + platform[3]-2, 
-                     platform[0] + platform[2]-2, platform[1]+2)
+        drawLevelBackground(app, 'blue', 'lightblue', 'white', 'bottom')
+        drawLevelPlatforms(app, level1.platforms[:4], 'gray')
+        drawLevelPlatforms(app, level1.platforms[4:], 'gray', with_diagonals=True)
     elif app.level2Loaded:
-        if boss2.attack1Ready and boss3.attack1Ready:
-            drawRect(0, 0, app.width, app.height, fill=gradient('lightgreen', 'lightblue', 'white', start='left'))
-        elif boss2.attack2Ready:
-            drawRect(0, 0, app.width, app.height, fill=gradient('orange', 'white', 'gray', start='left'))
-        elif boss2.attack3Ready or boss3.attack3Ready:
-            drawRect(0, 0, app.width, app.height, fill=gradient('red', 'black', 'red', start='left'))
-
-        for platform in level2.platforms:
-            drawRect(*platform, fill = None, border = 'black', borderWidth = 5)
-            drawRect(platform[0] + 2.5, platform[1] + 2.5, platform[2]-5, platform[3]-5, fill = 'hotpink')
+        drawLevelBackground(app, 'lightgreen', 'lightblue', 'white', 'left')
+        drawLevelPlatforms(app, level2.platforms, 'hotpink')
     elif app.level3Loaded:
-        for platform in level3.platforms:
-            drawRect(*platform,fill='blue')
+        drawLevelPlatforms(app, level3.platforms, 'blue')
 
 def drawBoss1(app):
     if boss1.health > 0:
-        drawRect(30, 30, 504, 10, fill = None, borderWidth = 2, border = 'black')
-        drawRect(32, 32, boss1.health, 6, fill = 'red')
-    dx, dy = (player.position[0] - boss1.position[0])/70, (player.position[1] - boss1.position[1])/70
-    if dx != 0:
-        angle = 50 * math.atan(dy/dx)
-        if boss1.attack1Ready and dx > 0:
-            drawImage(app.boss1Animation[0], *boss1.position, width=200, height=200, 
-                      align='center', rotateAngle = angle)
-        elif boss1.attack1Ready and dx <0:
-            drawImage(app.boss1AnimationMirror[1], *boss1.position, width=200, 
-                      height=200, align='center', rotateAngle = angle)
-        elif boss1.attack2Ready or boss1.attack3Ready:
-            if dx > 0:
-                drawImage(app.boss1Animation[app.boss1AnimationCounter], *boss1.position,
-                           width=200, height=200, align='center', rotateAngle = angle)
-            elif dx < 0:
-                drawImage(app.boss1AnimationMirror[app.boss1AnimationCounter], *boss1.position, 
-                          width=200, height=200, align='center', rotateAngle = angle)
+        drawHealthBar(boss1.health, 30, 30, 504, 10, 'red', 2, 'black')
+        drawBossAnimation(app, boss1, 200, 'center')
 
-def projectBossNextSpot(app, newX, newY):
-    drawImage(app.boss1Animation[app.boss1AnimationCounter], newX-20, newY+10, width=200, 
-              height=200, align='center', opacity = 30)
+def drawLevelBackground(app, color1, color2, color3, direction):
+    if boss1.attack1Ready:
+        drawRect(0, 0, app.width, app.height, fill=gradient(color1, color2, color3, start=direction))
+    elif boss1.attack2Ready or boss1.attack3Ready:
+        drawRect(0, 0, app.width, app.height, fill=gradient('red', 'brown', 'black', start='bottom'))
+
+def drawLevelPlatforms(app, platforms, fill_color, with_diagonals=False):
+    for platform in platforms:
+        drawRect(*platform, fill=None, border='black', borderWidth=5)
+        drawRect(platform[0] + 2.5, platform[1] + 2.5, platform[2] - 5, platform[3] - 5, fill=fill_color)
+        if with_diagonals:
+            drawDiagonals(platform)
+
+def drawBossAnimation(app, boss, size, align):
+    dx, dy = calculateBossAnimationParameters(boss)
+    angle = 50 * math.atan(dy / dx) if dx != 0 else 0
+    if boss.attack1Ready and dx > 0:
+        drawImage(app.boss1Animation[0], *boss.position, width=size, height=size, align=align, rotateAngle=angle)
+    elif boss.attack1Ready and dx < 0:
+        drawImage(app.boss1AnimationMirror[1], *boss.position, width=size, height=size, align=align, rotateAngle=angle)
+    elif (boss.attack2Ready or boss.attack3Ready) and dx > 0:
+        drawImage(app.boss1Animation[app.boss1AnimationCounter], *boss.position, width=size, height=size, align=align, rotateAngle=angle)
+    elif (boss.attack2Ready or boss.attack3Ready) and dx < 0:
+        drawImage(app.boss1AnimationMirror[app.boss1AnimationCounter], *boss.position, width=size, height=size, align=align, rotateAngle=angle)
+
+def calculateBossAnimationParameters(boss):
+    return (player.position[0] - boss.position[0]) / 70, (player.position[1] - boss.position[1]) / 70
+
+def drawDiagonals(platform):
+    drawLine(platform[0] + 2, platform[1] + 2, platform[0] + platform[2] / 2, platform[1] + platform[3] - 2)
+    drawLine(platform[0] + platform[2] / 2, platform[1] + platform[3] - 2,
+             platform[0] + platform[2] - 2, platform[1] + 2)
+
+def drawHealthBar(value, x, y, width, height, fill_color, border_width, border_color):
+    drawRect(x, y, width, height, fill=None, borderWidth=border_width, border=border_color)
+    drawRect(x + 2, y + 2, value, height - 4, fill=fill_color)
+
+
+# Boss1 Attacks
 
 def boss1Attack(app):
     if boss1.health > 300:
@@ -913,29 +1082,23 @@ def boss1Attack(app):
 
 def boss1Attack1(app):
     if boss1.attack1Ready and lineOfSightCheck(app, *boss1.position, *player.position, 35):
-        drawPolygon(*boss1.position, player.position[0], player.position[1] - 10, 
-                    player.position[0], player.position[1] + 10)
-        drawPolygon(*boss1.position, player.position[0], player.position[1] -5, 
-                    player.position[0], player.position[1] + 5, fill='red')
-        player.removeHealth(0.025)    
+        drawLine(*boss1.position,*player.position)
+        player.removeHealth(0.025)
+
+def projectBossNextSpot(app, newX, newY):
+    drawImage(app.boss1Animation[app.boss1AnimationCounter], newX-20, newY+10, width=200, 
+              height=200, align='center', opacity = 30)
 
 def boss1Attack2(app):
-    print(boss1.attack2Positions)
     for elem in boss1.attack2Positions[2]:
-        drawCircle(elem[0], elem[1],10,fill='gray',border='black')
+        drawCircle(elem[0],elem[1],10)
         dx = elem[5]
-        m = max(elem[3],elem[1])
-        s = min(elem[3],elem[1])
-        if elem[3] < elem[1] -10 and elem[4] == 0:
-            dy = (s-m)/30
-        else:
-            elem[4]=1
-            dy=(m-s)/30
-        boss1.shootProjectile(app, boss1.attack2Positions[2].index(elem), dx, dy) 
+        m, s = max(elem[3], elem[1]), min(elem[3], elem[1])
+        dy = (s - m) / 30 if elem[3] < elem[1] - 10 and elem[4] == 0 else (m - s) / 30
+        boss1.shootProjectile(app, boss1.attack2Positions[2].index(elem), dx, dy)
 
 def boss1Attack3(app):
     boss1Attack2(app)
-
 
 ##### ALL LEVEL 2 STUFF
 #####
@@ -1065,8 +1228,9 @@ def drawLevel3(app):
     drawPlayer(app)
 
 def drawBoss4(app):
-    boss4.position = [1600, 800]
-    drawRect(1400, 0, 200, 800, fill='pink')
+    boss4.position = [1800, 400]
+    boss4.radius = 400
+    drawCircle(*boss4.position,boss4.radius,fill='pink')
     if boss4.health > 0:
         drawRect(30, 60, 1004, 15, fill = None, borderWidth = 2, border = 'black')
         drawRect(32, 62, boss4.health//3, 11, fill = 'red')
@@ -1076,10 +1240,8 @@ def level3Attack(app):
     if boss4.health > 2000:
         boss4.attack1Ready=True
         level3Attack1(app)
-    elif 2000 > boss4.health > 1000:
-        level3Attack2(app)
     else:
-        level3Attack3(app)
+        level3Attack2(app)
         
 def background(app):
     colour = random.randint(0,6)
@@ -1089,13 +1251,27 @@ def background(app):
         boss4.randomBG(app, boss4.attack1Positions.index(elem))
 
 def level3Attack1(app):
-    pass
+    if not boss4.projectX and not boss4.projectY:
+        boss4.projectX=[random.randint(0,800),random.randint(50,100)]
+        boss4.projectY=[random.randint(0,800),random.randint(500,700)]
+    boss4.sweep(boss4.projectX,boss4.projectY)
+    if len(boss4.attack2Positions[2]) < 15:
+        boss4.attack2Positions[2].append([1400,random.randint(300,650)])
+    for elem in boss4.attack2Positions[2]:
+        drawCircle(elem[0],elem[1],10,fill='black')
+        dx,dy=-10,50/(elem[1])
+        x = elem[0]
+        if (0.05 * x - 40) != 0:
+            dy = (-1 * (x - 800) - 200)/140
+        boss4.shootProjectile(app,boss4.attack2Positions[2].index(elem),dx,dy)
 
 def level3Attack2(app):
-    pass
-
-def level3Attack3(app):
-    pass
+    left,top=1400,200
+    width,height=50,200
+    if not boss4.attack3Positions:
+        boss4.attack3Positions = [left,top,width,height,*player.position]
+    boss4.squareAttack(app)
+    level3Attack1(app)
 
 
 ##### MISC DRAWINGS & RESETS
@@ -1125,13 +1301,13 @@ def drawPlayer(app):
         drawRect(96, 721, player.health+8, 28, fill='gold', border='black')
         drawRect(100, 725, player.health, 20, fill='green')
         drawLabel(f'Player Health:{int(player.health)}', 180, 700, size=20, fill='white')
-    if app.level3Loaded and playerBumpedByPlatform(app):
+    if app.level3Loaded and playerBumpedByPlatform():
         if player.position[0] > 30:
             player.move(app, -10, 0)
         else:
             player.removeHealth(10)
         
-def playerBumpedByPlatform(app):
+def playerBumpedByPlatform():
     for platform in level3.platforms[3:]:
         if (platform[0]-50<player.position[0]<platform[0]) and (platform[1]-50 < player.position[1] < platform[1]+50):
             return True
@@ -1182,13 +1358,20 @@ def drawHomeScreen(app):
     
    
 def drawDeathScreen(app):
-    drawImage(app.deathScreenImage, 0, 0)
+    drawRect(0,0,app.width,app.height,fill='white')
+    drawRect(30,30,app.width-60,app.height-60,fill='black')
+
+    drawLabel('You Died...', app.width/2-5, 95, size=100, bold=True, 
+              fill='white', border='black')
+    drawLabel('You Died...', app.width/2, 100, size=100, bold=True, 
+              fill=gradient('blue', 'limeGreen', 'green', start='left-top'), border='black')
     drawRect(1196, 296, 100, 100, fill='white')
     drawRect(1200, 300, 100, 100, fill = 'gray', border='black')
     drawLabel('Return', 1250, 350)
 
 def drawVictoryScreen(app):
-    drawImage(app.victoryScreenImage, 0, 0, width=1600)
+    drawRect(0,0,app.width,app.height,fill='white')
+    drawRect(30,30,app.width-60,app.height-60,fill='black')
     drawLabel('Victory!', app.width/2-5, 95, size=100, bold=True, 
               fill='white', border='black')
     drawLabel('Victory!', app.width/2, 100, size=100, bold=True, 
@@ -1205,16 +1388,17 @@ def drawWeaponSelectionScreen(app):
     text2 = 'Basic Bullet Gun, click to shoot a projectile in that direction'
     text3 = 'Razorblade Typhoon, click to shoot tracking projectiles in a volley around you'
     text4 = 'Lightning rod, click to summon projectiles from the air'
-    texts = [text1, text2, text3, text4]
-    for i in range(4):
+    text5= 'Slingshot Cannon, drag to fire in that direction'
+    texts = [text1, text2, text3, text4,text5]
+    for i in range(5):
         color = gradient('red', 'white', start='right-top') if weapons[i] != player.equippedWeapon else 'green'
-        drawRect(350, 50 + 200*i, 300, 100, 
+        drawRect(350, 50 + 150*i, 300, 100, 
                  fill=color)
-        drawLabel(texts[i], 700, 100 + 200*i, size=20 , align='left')
+        drawLabel(texts[i], 700, 100 + 150*i, size=20 , align='left')
     drawPolygon(350,100,645,55,645,145,fill='black')
-    drawImage(app.typhoonBook, 500, 510, width=175, height=175, align='center')
-    drawImage(app.weapon2BulletImage, 500, 325, width=175, height=175, align='center')
-    drawImage(app.staff, 500, 700, width=200, height=200, rotateAngle=90, align='center')
+    drawImage(app.typhoonBook, 500, 410, width=175, height=175, align='center')
+    drawImage(app.weapon2BulletImage, 500, 275, width=175, height=175, align='center')
+    drawImage(app.staff, 500, 550, width=200, height=200, rotateAngle=90, align='center')
 
 def drawArmorSelectionScreen(app):
     drawRect(0,0, app.width, app.height, 
@@ -1225,11 +1409,13 @@ def drawArmorSelectionScreen(app):
     text2='Medium Armor, increased health benefits but no movement help'
     text3='Heavy Armor, extreme health increase but movement hinderance'
     texts=[text1, text2, text3]
+    colors=['white','green','red']
     for i in range(3):
         color = gradient('blue', 'green', start='right-top') if armor[i] != player.speed else 'green'
         drawRect(350, 50 + 200*i, 300, 100, 
                  fill=color, border='black')
         drawLabel(texts[i], 700, 100 + 200*i, size=20 , align='left')
+        drawRect(525, 70+200*i,50,50,fill=colors[i])
 
 def drawLevelEditor(app):
     fil = 'white' if len(app.colors) >= 2 else 'black'
